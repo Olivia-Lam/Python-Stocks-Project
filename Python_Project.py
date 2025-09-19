@@ -17,6 +17,7 @@ def download_stock_data(ticker, period='3y'):
 
 # Simple Moving Average Function
 def plot_simple_moving_average(ticker, period = '3y'):
+    
     pass
 
 
@@ -37,7 +38,8 @@ def plot_upward_downward_runs(ticker, period='3y'):
     plt.fill_between(prices.index, prices, ma_50, where=trend, 
                     alpha=0.3, color='green', label='Upward Trend')
     plt.fill_between(prices.index, prices, ma_50, where=~trend, 
-                    alpha=0.3, color='red', label='Downward Trend')
+                    alpha=0.3, color='red', label=
+                    'Downward Trend')
     
     plt.title(f'Upward & Downward Runs for {ticker}', fontsize=16)
     plt.xlabel('Date')
