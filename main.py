@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
-
+import numpy as np
 # ---------------------------
 # Download Stock Data Function
 # ---------------------------
@@ -17,19 +17,48 @@ def download_stock_data(ticker, period='3y'):
 # ---------------------------
 # Analysis Functions
 # ---------------------------
-def simple_moving_average(data):
-    #SAMPLE CODES FROM GPT, PLS REPLACE WITH UR CODES
-    sma = data['Close'].rolling(window=20).mean()
-    plt.figure(figsize=(12, 6))
-    plt.plot(data.index, data['Close'], label="Closing Price", color="blue")
-    plt.plot(data.index, sma, label="20-Day SMA", color="orange")
-    plt.title("Simple Moving Average (20-day)")
-    plt.xlabel("Date")
-    plt.ylabel("Price ($)")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    fig = plt.gcf()
-    plt.close(fig)
+def _compute_smas(prices, windows=(12, 50, 200)):
+    """Efficient O(n) sliding-window SMAs using one cumulative sum pass."""
+    s = prices.astype("float64")
+    csum = s.cumsum()
+    out = {}
+    for w in windows:
+        sma = (csum - csum.shift(w)) / w
+        # enforce strict window: first w-1 are NaN
+        if w > 1:
+            sma.iloc[:w-1] = np.nan
+        out[w] = sma
+    return out
+
+
+def simple_moving_average(ticker, period='3y'):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
+
+    # --- O(n) sliding-window SMAs (12/50/200) ---
+    smas = _compute_smas(prices, windows=(12, 50, 200))
+    ma_12 = smas[12]
+    ma_50 = smas[50]
+    ma_200 = smas[200]
+
+    fig, ax = plt.subplots(figsize=(14, 6), facecolor='#e6e6e6')
+    ax.set_facecolor('#e6e6e6')
+    for s in ax.spines.values():
+        s.set_visible(False)
+    ax.grid(False)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position('right')
+    ax.tick_params(axis='y', right=True, left=False, colors='#222')
+    ax.tick_params(axis='x', colors='#222')
+
+    ax.plot(prices.index, prices, linewidth=1.2, label='Close')
+    ax.plot(ma_12.index, ma_12, linewidth=1.2, label='SMA 12')
+    ax.plot(ma_50.index, ma_50, linewidth=1.2, label='SMA 50')
+    ax.plot(ma_200.index, ma_200, linewidth=1.2, label='SMA 200')
+
+    ax.legend(frameon=False, loc='upper left')
+    ax.set_title(f'{ticker} — Simple Moving Averages')
+    ax.set_ylabel('Price')
     return fig
 
 def plot_upward_downward_runs(data, ticker):
@@ -146,7 +175,7 @@ if ticker and data is not None and not data.empty:
         st.write("Shows the selected analysis compared to the actual stock price")
 
         if analysis_type == "Simple Moving Average":
-            fig = simple_moving_average(data)
+            fig = simple_moving_average(ticker, period='3y')
         elif analysis_type == "Upwards and Downwards Run":
             fig = plot_upward_downward_runs(data, ticker)
         elif analysis_type == "Daily Returns":
