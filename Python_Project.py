@@ -55,11 +55,13 @@ def plot_upward_downward_runs(ticker, period='3y'):
 def plot_simple_daily_returns(ticker, period= '3y'):
     pass
 
-def plot_max_profit_calculations(ticker, period = '3y'):
+def max_profit_calculations(ticker, period = '3y'):
     data = download_stock_data(ticker, period)
     prices = data['Close']
     buy_days = []
     sell_days = []
+    prices_bought = []
+    prices_sold = []
     trades = []
     total_profit = 0
     i = 0
@@ -77,6 +79,7 @@ def plot_max_profit_calculations(ticker, period = '3y'):
         buy_price = price_list[i]
         buy_day = dates[i]
         buy_days.append(buy_day)
+        prices_bought.append(buy_price)
         
         # Find next local maximum (sell point)
         while i < n - 1 and price_list[i+1] >= price_list[i]:
@@ -84,7 +87,9 @@ def plot_max_profit_calculations(ticker, period = '3y'):
         sell_price = price_list[i]
         sell_day = dates[i]
         sell_days.append(sell_day)
+        prices_sold.append(sell_price)
         
+        profit = sell_price - buy_price
         total_profit += sell_price - buy_price
 
         trades.append({
@@ -92,10 +97,10 @@ def plot_max_profit_calculations(ticker, period = '3y'):
             "Buy Price": round(buy_price, 2),
             "Sell Date": sell_day.strftime("%Y-%m-%d"),
             "Sell Price": round(sell_price, 2),
-            "Profit": round(total_profit, 2)
+            "Profit": round(profit, 2)
         })
     
-    return pd.DataFrame(trades), buy_days, sell_days, buy_price, sell_price, round(total_profit, 2)
+    return pd.DataFrame(trades), buy_days, sell_days, prices_sold, prices_bought, round(total_profit, 2)
     
 # Main Application
 if __name__ == "__main__":

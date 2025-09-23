@@ -94,7 +94,7 @@ def daily_returns(data):
 
 def max_profit(ticker):
     try:
-        trades, buy_days, sell_days, buy_prices, sell_prices, total_profit = Python_Project.plot_max_profit_calculations(ticker)
+        trades, buy_days, sell_days, prices_bought, prices_sold, total_profit = Python_Project.max_profit_calculations(ticker)
         
         if not buy_days:
             st.warning("No profitable trades found in this period.")
@@ -105,18 +105,16 @@ def max_profit(ticker):
             data = download_stock_data(ticker)
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.plot(data['Close'], label='Close Price', color='blue')
-            ax.scatter(buy_days, buy_prices, marker='^', color='green', label='Buy', s=100)
-            ax.scatter(sell_days, sell_prices, marker='v', color='red', label='Sell', s=100)
+            ax.scatter(buy_days, prices_bought, marker='^', color='green', label='Buy', s=20, alpha=0.5)
+            ax.scatter(sell_days, prices_sold, marker='v', color='red', label='Sell', s=20, alpha=0.5)
             ax.set_title(f"{ticker} Price with Max Profit Trades")
             ax.set_xlabel("Date")
             ax.set_ylabel("Price ($)")
             ax.legend()
             ax.grid(True)
-            st.pyplot(fig, clear_figure=True)
 
-            with st.expander("📊 View Trade Details"):
-                st.dataframe(trades, use_container_width=True)
-
+            return fig,trades
+        
     except Exception as e:
         st.error(f"Error fetching data: {e}")
 # ---------------------------
@@ -176,16 +174,26 @@ if ticker and data is not None and not data.empty:
         st.subheader("Analysis Results")
         st.write("Shows the selected analysis compared to the actual stock price")
 
-        if analysis_type == "Simple Moving Average":
-            fig = simple_moving_average(ticker, period='3y', window=sma_window)
-        elif analysis_type == "Upwards and Downwards Run":
-            fig = plot_upward_downward_runs(data, ticker)
-        elif analysis_type == "Daily Returns":
-            fig = daily_returns(data)
+        if analysis_type == "Max Profit Calculations":
+            fig,trades = max_profit(ticker)
+            if fig:
+                st.pyplot(fig)
+                plt.close(fig)
+            if trades is not None:
+                with st.expander("📊 View Trade Details"):
+                    st.dataframe(trades, use_container_width=True)
         else:
-            fig = max_profit(data)
+            if analysis_type == "Simple Moving Average":
+                fig = simple_moving_average(ticker, period='3y', window=sma_window)
+            elif analysis_type == "Upwards and Downwards Run":
+                fig = plot_upward_downward_runs(data, ticker)
+            elif analysis_type == "Daily Returns":
+                fig = daily_returns(data)
+            if fig:
+                st.pyplot(fig)
+                plt.close(fig)
+        
 
-        st.pyplot(fig)
 else:
     if ticker_selection != "Others":
         st.info("Select a company ticker first to see analysis options.")
