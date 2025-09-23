@@ -26,7 +26,7 @@ def _compute_smas(prices, windows=(12, 50, 200)):
         sma = (csum - csum.shift(w)) / w
         # enforce strict window: first w-1 are NaN
         if w > 1:
-            sma.iloc[:w-1] = np.nan
+            sma.iloc[:w-1] = s.expanding(min_periods=1).mean().iloc[:w-1]
         out[w] = sma
     return out
 
