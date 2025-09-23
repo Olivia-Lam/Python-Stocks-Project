@@ -30,16 +30,12 @@ def _compute_smas(prices, windows=(12, 50, 200)):
         out[w] = sma
     return out
 
-
-def simple_moving_average(ticker, period='3y'):
+def simple_moving_average(ticker, window=50, period='3y'):
     data = download_stock_data(ticker, period)
     prices = data['Close']
-
-    # --- O(n) sliding-window SMAs (12/50/200) ---
-    smas = _compute_smas(prices, windows=(12, 50, 200))
-    ma_12 = smas[12]
-    ma_50 = smas[50]
-    ma_200 = smas[200]
+     # Compute only the selected window
+    smas = _compute_smas(prices, windows=(window,))
+    ma = smas[window]
 
     fig, ax = plt.subplots(figsize=(14, 6), facecolor='#e6e6e6')
     ax.set_facecolor('#e6e6e6')
@@ -52,14 +48,13 @@ def simple_moving_average(ticker, period='3y'):
     ax.tick_params(axis='x', colors='#222')
 
     ax.plot(prices.index, prices, linewidth=1.2, label='Close')
-    ax.plot(ma_12.index, ma_12, linewidth=1.2, label='SMA 12')
-    ax.plot(ma_50.index, ma_50, linewidth=1.2, label='SMA 50')
-    ax.plot(ma_200.index, ma_200, linewidth=1.2, label='SMA 200')
+    ax.plot(ma.index, ma, linewidth=1.2, label=f'SMA {window}')
 
     ax.legend(frameon=False, loc='upper left')
-    ax.set_title(f'{ticker} — Simple Moving Averages')
+    ax.set_title(f'{ticker} — Simple Moving Average ({window}-day)')
     ax.set_ylabel('Price')
     return fig
+
 
 def plot_upward_downward_runs(data, ticker):
     prices = data['Close']
@@ -175,7 +170,7 @@ if ticker and data is not None and not data.empty:
         st.write("Shows the selected analysis compared to the actual stock price")
 
         if analysis_type == "Simple Moving Average":
-            fig = simple_moving_average(ticker, period='3y')
+            fig = simple_moving_average(ticker, period='3y', window=sma_window)
         elif analysis_type == "Upwards and Downwards Run":
             fig = plot_upward_downward_runs(data, ticker)
         elif analysis_type == "Daily Returns":
