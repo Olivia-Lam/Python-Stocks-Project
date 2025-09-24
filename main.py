@@ -127,6 +127,47 @@ def max_profit(ticker):
         
     except Exception as e:
         st.error(f"Error fetching data: {e}")
+
+def plotly_sma_zoom(data, ticker, window=50):
+    prices = data['Close']
+    volume = data['Volume'] if 'Volume' in data.columns else None
+    ma = _compute_smas(prices, windows=(window,))[window]
+
+    up = prices.diff().fillna(0) >= 0
+    vol_colors = np.where(up, "#26a69a", "#ef5350") if volume is not None else None
+
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02,
+        row_heights=[0.72, 0.28], specs=[[{"secondary_y": False}], [{"secondary_y": False}]]
+    )
+    fig.add_trace(go.Scatter(x=prices.index, y=prices, name="Close", mode="lines"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {window}", mode="lines"), row=1, col=1)
+    if volume is not None:
+        fig.add_trace(go.Bar(x=volume.index, y=volume, name="Volume",
+                             marker=dict(color=vol_colors), opacity=0.7), row=2, col=1)
+
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(buttons=[
+            dict(count=1, label="1m", step="month", stepmode="backward"),
+            dict(count=3, label="3m", step="month", stepmode="backward"),
+            dict(count=6, label="6m", step="month", stepmode="backward"),
+            dict(step="yeartodate", label="YTD"),
+            dict(count=1, label="1y", step="year", stepmode="backward"),
+            dict(count=3, label="3y", step="year", stepmode="backward"),
+            dict(step="all")
+        ]),
+        row=1, col=1
+    )
+    fig.update_layout(
+        hovermode="x unified", dragmode="pan", showlegend=True,
+        margin=dict(l=10, r=10, t=40, b=10),
+        title=f"{ticker} — Zoomable Price / SMA ({window}-day)"
+    )
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1, showgrid=False)
+    return fig
+
 # ---------------------------
 # Streamlit App Layout
 # ---------------------------
@@ -196,7 +237,7 @@ if ticker and data is not None and not data.empty:
                     }), use_container_width=True)
         else:
             if analysis_type == "Simple Moving Average":
-                fig = simple_moving_average(ticker, period='3y', window=sma_window)
+                st.plotly_chart(plotly_sma_zoom(data, ticker, window=sma_window), use_container_width=True)
             elif analysis_type == "Upwards and Downwards Run":
                 fig = plot_upward_downward_runs(data, ticker)
             elif analysis_type == "Daily Returns":
