@@ -67,112 +67,112 @@ def plot_simple_daily_returns(ticker, period='3y'):
     plt.tight_layout()
     plt.show()
 
-def max_profit_calculations(ticker, period = '3y'):
-    data = download_stock_data(ticker, period)
-    prices = data['Close']
-    buy_days = []
-    sell_days = []
-    prices_bought = []
-    prices_sold = []
-    trades = []
-    filtered_buy_days = []
-    filtered_sell_days = []
-    filtered_buy_prices = []
-    filtered_sell_prices = []
-    total_profit = 0
-    i = 0
-    n = len(prices)
-    price_list = prices.tolist()
-    dates = prices.index.tolist()
+# def max_profit_calculations(ticker, period = '3y'):
+#     data = download_stock_data(ticker, period)
+#     prices = data['Close']
+#     buy_days = []
+#     sell_days = []
+#     prices_bought = []
+#     prices_sold = []
+#     trades = []
+#     filtered_buy_days = []
+#     filtered_sell_days = []
+#     filtered_buy_prices = []
+#     filtered_sell_prices = []
+#     total_profit = 0
+#     i = 0
+#     n = len(prices)
+#     price_list = prices.tolist()
+#     dates = prices.index.tolist()
     
-    # Loop to buy low and sell high
-    while i < n - 1:
-        # Find buy point, keeps moving until it detects a rise
-        while i < n - 1 and price_list[i+1] <= price_list[i]:
-            i += 1
-        if i == n - 1:
-            break
-        #Once the greatest rise is detected, that will be stored as a buy point
-        buy_price = price_list[i]
-        buy_day = dates[i]
-        buy_days.append(buy_day)
-        prices_bought.append(buy_price)
+#     # Loop to buy low and sell high
+#     while i < n - 1:
+#         # Find buy point, keeps moving until it detects a rise
+#         while i < n - 1 and price_list[i+1] <= price_list[i]:
+#             i += 1
+#         if i == n - 1:
+#             break
+#         #Once the greatest rise is detected, that will be stored as a buy point
+#         buy_price = price_list[i]
+#         buy_day = dates[i]
+#         buy_days.append(buy_day)
+#         prices_bought.append(buy_price)
         
-        # Find sell point, reverse of buy point
-        while i < n - 1 and price_list[i+1] >= price_list[i]:
-            i += 1
-        # Once the highest point is detected, that will be stored as a sell point
-        sell_price = price_list[i]
-        sell_day = dates[i]
-        sell_days.append(sell_day)
-        prices_sold.append(sell_price)
+#         # Find sell point, reverse of buy point
+#         while i < n - 1 and price_list[i+1] >= price_list[i]:
+#             i += 1
+#         # Once the highest point is detected, that will be stored as a sell point
+#         sell_price = price_list[i]
+#         sell_day = dates[i]
+#         sell_days.append(sell_day)
+#         prices_sold.append(sell_price)
         
-        # Calculate profit from the transaction
-        profit = sell_price - buy_price
-        # Sums up all the profits from each transaction
-        total_profit += profit
+#         # Calculate profit from the transaction
+#         profit = sell_price - buy_price
+#         # Sums up all the profits from each transaction
+#         total_profit += profit
 
-        # Record the trade to put into table later on
-        trades.append({
-            "Buy Date": buy_day.strftime("%Y-%m-%d"),
-            "Buy Price": round(buy_price,2),
-            "Sell Date": sell_day.strftime("%Y-%m-%d"),
-            "Sell Price": round(sell_price,2),
-            "Profit": round(profit,2)
-        }
-        )
-        # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
-        trades_df = pd.DataFrame(trades)
-        top_trades = trades_df["Profit"].quantile(0.9)
-        # Stores trades with profits above 90th percentile
-        if profit >= top_trades:
-            filtered_buy_days.append(buy_day)
-            filtered_sell_days.append(sell_day)
-            filtered_buy_prices.append(buy_price)
-            filtered_sell_prices.append(sell_price)
+#         # Record the trade to put into table later on
+#         trades.append({
+#             "Buy Date": buy_day.strftime("%Y-%m-%d"),
+#             "Buy Price": round(buy_price,2),
+#             "Sell Date": sell_day.strftime("%Y-%m-%d"),
+#             "Sell Price": round(sell_price,2),
+#             "Profit": round(profit,2)
+#         }
+#         )
+#         # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
+#         trades_df = pd.DataFrame(trades)
+#         top_trades = trades_df["Profit"].quantile(0.9)
+#         # Stores trades with profits above 90th percentile
+#         if profit >= top_trades:
+#             filtered_buy_days.append(buy_day)
+#             filtered_sell_days.append(sell_day)
+#             filtered_buy_prices.append(buy_price)
+#             filtered_sell_prices.append(sell_price)
     
-    return trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)    
+#     return trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)    
     
-# MACD Calculation Function
-def macd_calculations(ticker, period = '3y'):
-    data = download_stock_data(ticker, period)
-    prices = data['Close']
+# # MACD Calculation Function
+# def macd_calculations(ticker, period = '3y'):
+#     data = download_stock_data(ticker, period)
+#     prices = data['Close']
 
-    # Exonential Moving Averages calculation
-    ema_12 = prices.ewm(span=12, adjust=False).mean()
-    ema_26 = prices.ewm(span=26, adjust=False).mean()
+#     # Exonential Moving Averages calculation
+#     ema_12 = prices.ewm(span=12, adjust=False).mean()
+#     ema_26 = prices.ewm(span=26, adjust=False).mean()
 
-    # MACD and signal line calculation
-    macd_line = ema_12 - ema_26
-    signal_line = macd_line.ewm(span=9, adjust=False).mean()
-    histogram = macd_line - signal_line
+#     # MACD and signal line calculation
+#     macd_line = ema_12 - ema_26
+#     signal_line = macd_line.ewm(span=9, adjust=False).mean()
+#     histogram = macd_line - signal_line
 
-    return prices, macd_line, signal_line, histogram
+#     return prices, macd_line, signal_line, histogram
 
 
-# RSI Calculation Function
-def rsi_calculation(ticker, period='3y', window=14):
-    data = download_stock_data(ticker, period)
-    prices = data['Close']
+# # RSI Calculation Function
+# def rsi_calculation(ticker, period='3y', window=14):
+#     data = download_stock_data(ticker, period)
+#     prices = data['Close']
 
-    # Calculate daily price changes
-    difference = prices.diff()
+#     # Calculate daily price changes
+#     difference = prices.diff()
 
-    # Separate gains and losses
-    gain = difference.where(difference > 0, 0)
-    loss = -difference.where(difference < 0, 0)
+#     # Separate gains and losses
+#     gain = difference.where(difference > 0, 0)
+#     loss = -difference.where(difference < 0, 0)
 
-    # Calculate average gain & loss
-    avg_gain = gain.rolling(window=window, min_periods=window).mean()
-    avg_loss = loss.rolling(window=window, min_periods=window).mean()
+#     # Calculate average gain & loss
+#     avg_gain = gain.rolling(window=window, min_periods=window).mean()
+#     avg_loss = loss.rolling(window=window, min_periods=window).mean()
 
-    # Calculate RS (needed for RSI)
-    rs = avg_gain / avg_loss
+#     # Calculate RS (needed for RSI)
+#     rs = avg_gain / avg_loss
 
-    # Calculate RSI
-    rsi = 100 - (100 / (1 + rs))
+#     # Calculate RSI
+#     rsi = 100 - (100 / (1 + rs))
 
-    return prices, rsi
+#     return prices, rsi
 
 # Main Application
 if __name__ == "__main__":

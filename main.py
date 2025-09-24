@@ -101,31 +101,127 @@ def daily_returns(data):
     plt.close(fig)
     return fig
 
+# Max Profit Calculation Function
+def max_profit_calculations(ticker, period = '3y'):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
+    buy_days = []
+    sell_days = []
+    prices_bought = []
+    prices_sold = []
+    trades = []
+    filtered_buy_days = []
+    filtered_sell_days = []
+    filtered_buy_prices = []
+    filtered_sell_prices = []
+    total_profit = 0
+    i = 0
+    n = len(prices)
+    price_list = prices.tolist()
+    dates = prices.index.tolist()
+    
+    # Loop to buy low and sell high
+    while i < n - 1:
+        # Find buy point, keeps moving until it detects a rise
+        while i < n - 1 and price_list[i+1] <= price_list[i]:
+            i += 1
+        if i == n - 1:
+            break
+        #Once the greatest rise is detected, that will be stored as a buy point
+        buy_price = price_list[i]
+        buy_day = dates[i]
+        buy_days.append(buy_day)
+        prices_bought.append(buy_price)
+        
+        # Find sell point, reverse of buy point
+        while i < n - 1 and price_list[i+1] >= price_list[i]:
+            i += 1
+        # Once the highest point is detected, that will be stored as a sell point
+        sell_price = price_list[i]
+        sell_day = dates[i]
+        sell_days.append(sell_day)
+        prices_sold.append(sell_price)
+        
+        # Calculate profit from the transaction
+        profit = sell_price - buy_price
+        # Sums up all the profits from each transaction
+        total_profit += profit
+
+        # Record the trade to put into table later on
+        trades.append({
+            "Buy Date": buy_day.strftime("%Y-%m-%d"),
+            "Buy Price": round(buy_price,2),
+            "Sell Date": sell_day.strftime("%Y-%m-%d"),
+            "Sell Price": round(sell_price,2),
+            "Profit": round(profit,2)
+        }
+        )
+        # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
+        trades_df = pd.DataFrame(trades)
+        top_trades = trades_df["Profit"].quantile(0.9)
+        # Stores trades with profits above 90th percentile
+        if profit >= top_trades:
+            filtered_buy_days.append(buy_day)
+            filtered_sell_days.append(sell_day)
+            filtered_buy_prices.append(buy_price)
+            filtered_sell_prices.append(sell_price)
+    
+    return trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)
+
+# Max Profit Indicator
 def max_profit(ticker):
     try:
-        # Call the function from Python_Project.py
-        trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = Python_Project.max_profit_calculations(ticker)
+        
+        trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(ticker)
         
         if not buy_days:
             st.warning("No profitable trades found in this period.")
             return None
         else:
             st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
-    
-            # Plotting
-            data = download_stock_data(ticker)
-            fig, ax = plt.subplots(figsize=(12, 6))
-            ax.plot(data['Close'], label='Close Price', color='blue')
-            ax.scatter(filtered_buy_days, filtered_buy_prices, marker='^', color='green', label='Buy', s=50, alpha=0.7)
-            ax.scatter(filtered_sell_days, filtered_sell_prices, marker='v', color='red', label='Sell', s=50, alpha=0.7)
-            ax.set_title(f"{ticker} Price with Top Max Profit Trades")
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Price ($)")
-            ax.legend()
-            ax.grid(True)
+
+        
+            fig = go.Figure()
+
+            # Add closing price line
+            fig.add_trace(go.Scatter(
+                x=data.index,
+                y=data['Close'],
+                mode='lines',
+                name='Close Price',
+                line=dict(color='blue')
+            ))
+
+            # Add buy points
+            fig.add_trace(go.Scatter(
+                x=filtered_buy_days,
+                y=filtered_buy_prices,
+                mode='markers',
+                marker=dict(symbol='triangle-up', color='green', size=10),
+                name='Buy'
+            ))
+
+            # Add sell points
+            fig.add_trace(go.Scatter(
+                x=filtered_sell_days,
+                y=filtered_sell_prices,
+                mode='markers',
+                marker=dict(symbol='triangle-down', color='red', size=10),
+                name='Sell'
+            ))
+
+            # Update layout for interactivity
+            fig.update_layout(
+                title=f"{ticker} Price with Most Profitable Trades",
+                xaxis_title='Date',
+                yaxis_title='Price ($)',
+                xaxis_rangeslider_visible=True,  # adds a zoom slider at bottom
+                hovermode='x unified',
+                template='plotly_white'
+            )
 
             return fig,trades_df
-        
+
     except Exception as e:
         st.error(f"Error fetching data: {e}")
 
@@ -170,75 +266,174 @@ def plotly_sma_zoom(data, ticker, window=50):
     fig.update_yaxes(title_text="Volume", row=2, col=1, showgrid=False)
     return fig
 
+# MACD Calculation Function
+def macd_calculations(ticker, period = '3y'):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
 
+    # Exonential Moving Averages calculation
+    ema_12 = prices.ewm(span=12, adjust=False).mean()
+    ema_26 = prices.ewm(span=26, adjust=False).mean()
 
+    # MACD and signal line calculation
+    macd_line = ema_12 - ema_26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    histogram = macd_line - signal_line
+
+    return prices, macd_line, signal_line, histogram
+
+# MACD Indicator 
 def macd(ticker):
-    prices, macd_line, signal_line, histogram = Python_Project.macd_calculations(ticker)
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), gridspec_kw={'height_ratios': [2, 1.5]})
+    try:
 
-    # Plotting the price chart with MACD overlay
-    ax1.plot(prices.index, prices, label='Close Price', color='blue', linewidth=1.5)
-    ax1.set_ylabel('Price ($)', color='black')
-    ax1.tick_params(axis='x', labelcolor='black')
-    ax1.tick_params(axis='y', labelcolor='black')
-    ax1.grid(True, alpha=0.3)
-    ax1.set_xlabel('Date')
-    ax3 = ax1.twinx()
-    ax3.plot(prices.index, macd_line, label='MACD Line', color='purple', linewidth=1)
-    ax3.plot(prices.index, signal_line, label='Signal Line', color='orange', linewidth=1)
-    ax3.set_ylabel('MACD', color='purple')
-    ax3.tick_params(axis='y', labelcolor='purple')
-    ax3.legend(loc='upper left')
+        prices, macd_line, signal_line, histogram = macd_calculations(ticker)
+        
+        # For histogram scaling and colors
+        scale_factor = 2
+        scaled_histogram = histogram * scale_factor
+        colors = ['green' if h >= 0 else 'red' for h in scaled_histogram]
+
+        # Create subplots: 2 rows, shared x-axis
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            row_heights=[0.6, 0.4],
+            vertical_spacing=0.2,
+            subplot_titles=(f"{ticker} Price Chart", "MACD Histogram")
+        )
+
+        # Price chart display
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=prices, mode='lines', name='Close Price', line=dict(color='blue')),
+            row=1, col=1
+        )
+        
+        # MACD with Histogram
+        fig.add_trace(
+            go.Bar(x=prices.index, y=scaled_histogram, name='Histogram', marker_color=colors, opacity=0.5),
+            row=2, col=1
+        )
+
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=macd_line, mode='lines', name='MACD Line', line=dict(color='purple')),
+            row=2, col=1
+        )
+
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=signal_line, mode='lines', name='Signal Line', line=dict(color='orange')),
+            row=2, col=1
+        )
+
+        # Adding white line for MACD indicator zero line
+        fig.add_shape(
+            type="line",
+            x0=prices.index[0], x1=prices.index[-1],
+            y0=0, y1=0,
+            line=dict(color="white", width=1, dash="dash"),
+            row=2, col=1
+        )
+
+        # Layout and interactive features
+        fig.update_layout(
+            height=700,
+            hovermode='x unified',
+            template='plotly_white',
+            xaxis2_rangeslider_visible=True,  # interactive range slider for histogram
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+
+        return fig
     
-    # Secondary chart for histogram comparison
-    ax2.plot(prices.index, macd_line, label= 'MACD Line', color='purple')
-    ax2.plot(prices.index, signal_line, label= 'Signal Line', color='orange')
-    scale_factor = 2
-    scaled_histogram = histogram * scale_factor
-    colors = ['green' if h >= 0 else 'red' for h in scaled_histogram]
-    ax2.bar(prices.index, scaled_histogram, color=colors, alpha=0.5)
-    ax2.axhline(0, color='black', linewidth=1.5, linestyle='--')
-    ax2.set_xlabel('Date')
-    ax2.set_ylabel('Histogram (Scaled)')
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(loc='upper left')
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
 
+# RSI Calculation Function
+def rsi_calculation(ticker, period='3y', window=14):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
 
-    return fig
+    # Calculate daily price changes
+    difference = prices.diff()
 
+    # Separate gains and losses
+    gain = difference.where(difference > 0, 0)
+    loss = -difference.where(difference < 0, 0)
+
+    # Calculate average gain & loss
+    avg_gain = gain.rolling(window=window, min_periods=window).mean()
+    avg_loss = loss.rolling(window=window, min_periods=window).mean()
+
+    # Calculate RS (needed for RSI)
+    rs = avg_gain / avg_loss
+
+    # Calculate RSI
+    rsi = 100 - (100 / (1 + rs))
+
+    return prices, rsi
+
+# RSI Indicator
 def rsi(ticker):
-    prices, rsi = Python_Project.rsi_calculation(ticker)
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), gridspec_kw={'height_ratios': [2, 1.5]})
+    try:
+
+        prices, rsi = rsi_calculation(ticker)
+
+        # Create subplots: 2 rows, shared x-axis
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            row_heights=[0.6, 0.4],
+            vertical_spacing=0.2,
+            subplot_titles=(f"{ticker} Price", f"{ticker} RSI")
+        )
+
+        # Price Chart Display
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=prices, mode='lines', name='Close Price', line=dict(color='blue')),
+            row=1, col=1
+        )
+
+        # RSI Chart Display
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=rsi, mode='lines', name='RSI', line=dict(color='purple')),
+            row=2, col=1
+        )
+        # Adding grey line for RSI midiline
+        fig.add_shape(
+            type="line",
+            x0=prices.index[0], x1=prices.index[-1],
+            y0=50, y1=50,
+            line=dict(color="grey", width=1, dash="dash"),
+            row=2, col=1
+        )
+
+        # Add RSI overbought/oversold lines
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=[70]*len(prices), mode='lines',
+                    name='Overbought (70)', line=dict(color='red', dash='dash'), opacity=0.7),
+            row=2, col=1
+        )
+
+        fig.add_trace(
+            go.Scatter(x=prices.index, y=[30]*len(prices), mode='lines',
+                    name='Oversold (30)', line=dict(color='green', dash='dash'), opacity=0.7),
+            row=2, col=1
+        )
+        
+        # Layout and interactive features
+        fig.update_layout(
+            height=700,
+            hovermode='x unified',
+            template='plotly_white',
+            xaxis2_rangeslider_visible=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+
+        return fig
     
-    # Plot price chart
-    ax1.plot(prices.index, prices, label="Close Price", color="blue")
-    ax1.set_title(f"{ticker} Price & RSI")
-    ax1.set_ylabel("Price ($)")
-    ax1.set_xlabel("Date")
-    ax1.grid(alpha=0.3)
-
-    #Add codes below if we want to merge charts
-    # ax3 = ax1.twinx()
-    # ax3.plot(prices.index, rsi, label="RSI (14)", color="purple")
-    # ax3.axhline(70, color='red', linestyle='--', alpha=0.7, label="Overbought (70)")
-    # ax3.axhline(30, color='green', linestyle='--', alpha=0.7, label="Oversold (30)")
-    # ax3.set_ylabel("RSI")
-    # ax3.tick_params(axis='y', labelcolor='purple')
-    # ax3.legend(loc='upper left')
-
-    # RSI chart below
-    ax2.plot(prices.index, rsi, label="RSI", color="purple")
-    ax2.axhline(70, color='red', linestyle='--', alpha=0.7, label="Overbought (70)")
-    ax2.axhline(30, color='green', linestyle='--', alpha=0.7, label="Oversold (30)")
-    ax2.set_ylabel("RSI")
-    ax2.set_xlabel("Date")
-    ax2.legend(loc='upper left')
-    ax2.grid(alpha=0.3)
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
 
 
-
-
-    return fig
 
 # ---------------------------
 # Streamlit App Layout
@@ -281,7 +476,7 @@ if ticker:
 if ticker and data is not None and not data.empty:
     analysis_type = st.selectbox(
         "Select Analysis Type",
-        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD", "RSI"]
+        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD (Moving Average Convergence Diverence)", "RSI (Relative Strength Index)"]
     )
 
     if analysis_type == "Simple Moving Average":
@@ -295,10 +490,10 @@ if ticker and data is not None and not data.empty:
         st.write("Shows the selected analysis compared to the actual stock price")
 
         if analysis_type == "Max Profit Calculations":
+            # fig,trades_df = max_profit(ticker)
             fig,trades_df = max_profit(ticker)
             if fig:
-                st.pyplot(fig)
-                plt.close(fig)
+                st.plotly_chart(fig, use_container_width=True)
             if trades_df is not None:
                 # Display trades in an expandable section, user can sort columns too
                 with st.expander("📊 View Trade Details"):
@@ -314,13 +509,13 @@ if ticker and data is not None and not data.empty:
                 fig = plot_upward_downward_runs(data, ticker)
             elif analysis_type == "Daily Returns":
                 fig = daily_returns(data)
-            elif analysis_type == "MACD":
+            elif analysis_type == "MACD (Moving Average Convergence Diverence)":
                 fig = macd(ticker)
-            elif analysis_type == "RSI":
+            elif analysis_type == "RSI (Relative Strength Index)":
                 fig = rsi(ticker)
             if fig:
-                st.pyplot(fig)
-                plt.close(fig)
+                st.plotly_chart(fig, use_container_width=True)
+            
         
 
 else:
