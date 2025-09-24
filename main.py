@@ -197,6 +197,7 @@ def macd(ticker):
     scaled_histogram = histogram * scale_factor
     colors = ['green' if h >= 0 else 'red' for h in scaled_histogram]
     ax2.bar(prices.index, scaled_histogram, color=colors, alpha=0.5)
+    ax2.axhline(0, color='black', linewidth=1.5, linestyle='--')
     ax2.set_xlabel('Date')
     ax2.set_ylabel('Histogram (Scaled)')
     ax2.grid(True, alpha=0.3)
