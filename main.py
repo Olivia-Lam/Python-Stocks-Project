@@ -128,6 +128,7 @@ def max_profit(ticker):
     except Exception as e:
         st.error(f"Error fetching data: {e}")
 
+        
 def plotly_sma_zoom(data, ticker, window=50):
     prices = data['Close']
     volume = data['Volume'] if 'Volume' in data.columns else None
@@ -166,6 +167,39 @@ def plotly_sma_zoom(data, ticker, window=50):
     )
     fig.update_yaxes(title_text="Price", row=1, col=1)
     fig.update_yaxes(title_text="Volume", row=2, col=1, showgrid=False)
+    return fig
+
+
+
+def macd(ticker):
+    prices, macd_line, signal_line, histogram = Python_Project.macd_calculations(ticker)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), gridspec_kw={'height_ratios': [2, 1.5]})
+
+    # Plotting the price chart with MACD overlay
+    ax1.plot(prices.index, prices, label='Close Price', color='blue', linewidth=1.5)
+    ax1.set_ylabel('Price ($)', color='black')
+    ax1.tick_params(axis='x', labelcolor='black')
+    ax1.tick_params(axis='y', labelcolor='black')
+    ax1.grid(True, alpha=0.3)
+    ax1.set_xlabel('Date')
+    ax3 = ax1.twinx()
+    ax3.plot(prices.index, macd_line, label='MACD Line', color='purple', linewidth=1)
+    ax3.plot(prices.index, signal_line, label='Signal Line', color='orange', linewidth=1)
+    ax3.set_ylabel('MACD', color='purple')
+    ax3.tick_params(axis='y', labelcolor='purple')
+    ax3.legend(loc='upper left')
+    
+    # Secondary chart for histogram comparison
+    ax2.plot(prices.index, macd_line, label= 'MACD Line', color='purple')
+    ax2.plot(prices.index, signal_line, label= 'Signal Line', color='orange')
+    colors = ['green' if h >= 0 else 'red' for h in histogram]
+    ax2.bar(prices.index, histogram, color=colors, alpha=0.5)
+    ax2.set_xlabel('Date')
+    ax2.set_ylabel('Histogram')
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(loc='upper left')
+
+
     return fig
 
 # ---------------------------
@@ -209,7 +243,7 @@ if ticker:
 if ticker and data is not None and not data.empty:
     analysis_type = st.selectbox(
         "Select Analysis Type",
-        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations"]
+        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD"]
     )
 
     if analysis_type == "Simple Moving Average":
@@ -242,6 +276,8 @@ if ticker and data is not None and not data.empty:
                 fig = plot_upward_downward_runs(data, ticker)
             elif analysis_type == "Daily Returns":
                 fig = daily_returns(data)
+            elif analysis_type == "MACD":
+                fig = macd(ticker)
             if fig:
                 st.pyplot(fig)
                 plt.close(fig)

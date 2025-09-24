@@ -133,6 +133,22 @@ def max_profit_calculations(ticker, period = '3y'):
     
     return trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)    
     
+
+def macd_calculations(ticker, period = '3y'):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
+
+    # Exonential Moving Averages calculation
+    ema_12 = prices.ewm(span=12, adjust=False).mean()
+    ema_26 = prices.ewm(span=26, adjust=False).mean()
+
+    # MACD and signal line calculation
+    macd_line = ema_12 - ema_26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    histogram = macd_line - signal_line
+
+    return prices, macd_line, signal_line, histogram
+
 # Main Application
 if __name__ == "__main__":
     ticker_symbol = input("Input Stock code: ")
