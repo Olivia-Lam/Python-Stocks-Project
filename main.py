@@ -79,16 +79,23 @@ def plot_upward_downward_runs(data, ticker):
     return fig
 
 def daily_returns(data):
-    #SAMPLE CODES FROM GPT, PLS REPLACE WITH UR CODES
     returns = data['Close'].pct_change()
-    plt.figure(figsize=(12, 6))
-    plt.plot(returns.index, returns, label="Daily Returns", color="purple")
-    plt.title("Daily Returns")
-    plt.xlabel("Date")
-    plt.ylabel("Return")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    fig = plt.gcf()
+    fig, ax = plt.subplots(figsize=(12, 6), facecolor='#e6e6e6')
+    ax.set_facecolor('#e6e6e6')
+    for s in ax.spines.values():
+        s.set_visible(False)
+    ax.grid(False)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position('right')
+    ax.tick_params(axis='y', right=True, left=False, colors='#222')
+    ax.tick_params(axis='x', colors='#222')
+
+    ax.plot(returns.index, returns, label="Daily Returns", color="purple", linewidth=1.2)
+    ax.set_title("Daily Returns")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Return")
+    ax.legend(frameon=False, loc='upper left')
+    fig.autofmt_xdate()
     plt.close(fig)
     return fig
 

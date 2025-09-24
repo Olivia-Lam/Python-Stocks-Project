@@ -52,8 +52,20 @@ def plot_upward_downward_runs(ticker, period='3y'):
     
     
 # Simple Daily Returns Function
-def plot_simple_daily_returns(ticker, period= '3y'):
-    pass
+def plot_simple_daily_returns(ticker, period='3y'):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
+    daily_returns = prices.pct_change() * 100
+
+    plt.figure(figsize=(14, 6))
+    plt.plot(daily_returns.index, daily_returns, color='purple', linewidth=1.2)
+    plt.title(f'Simple Daily Returns for {ticker}', fontsize=16)
+    plt.xlabel('Date')
+    plt.ylabel('Daily Return (%)')
+    plt.grid(True, alpha=0.3)
+    plt.gcf().autofmt_xdate()
+    plt.tight_layout()
+    plt.show()
 
 def max_profit_calculations(ticker, period = '3y'):
     data = download_stock_data(ticker, period)
