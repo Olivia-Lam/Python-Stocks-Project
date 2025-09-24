@@ -396,7 +396,7 @@ if ticker and data is not None and not data.empty:
 
     if analysis_type == "Simple Moving Average":
     # Chart Type toggle
-    chart_type = st.selectbox("Chart Type", ["Line", "Candlestick", "Bars"])
+        chart_type = st.selectbox("Chart Type", ["Line", "Candlestick", "Bars"])
 
     # SMA window slider
     sma_window = st.slider("SMA Window (days)", min_value=5, max_value=250, value=50, step=1)
