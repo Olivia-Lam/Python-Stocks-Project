@@ -1,9 +1,10 @@
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
 import numpy as np
-import Python_Project
 # ---------------------------
 # Download Stock Data Function
 # ---------------------------
@@ -19,7 +20,7 @@ def download_stock_data(ticker, period='3y'):
 # Analysis Functions
 # ---------------------------
 def _compute_smas(prices, windows=(12, 50, 200)):
-    """Efficient O(n) sliding-window SMAs using one cumulative sum pass."""
+    """O(n) sliding-window SMAs using one cumulative sum pass."""
     s = prices.astype("float64")
     csum = s.cumsum()
     out = {}
@@ -92,33 +93,67 @@ def daily_returns(data):
     plt.close(fig)
     return fig
 
-def max_profit(ticker):
-    try:
-        trades, buy_days, sell_days, buy_prices, sell_prices, total_profit = Python_Project.plot_max_profit_calculations(ticker)
-        
-        if not buy_days:
-            st.warning("No profitable trades found in this period.")
-        else:
-            st.success(f"Total Potential Profit: ${total_profit}")
+def max_profit(data):
+    #SAMPLE CODES FROM GPT, PLS REPLACE WITH UR CODES
+    prices = data['Close']
+    min_price = prices.min()
+    max_price = prices.max()
+    min_date = prices.idxmin()
+    max_date = prices.idxmax()
 
-            # Plotting
-            data = download_stock_data(ticker)
-            fig, ax = plt.subplots(figsize=(12, 6))
-            ax.plot(data['Close'], label='Close Price', color='blue')
-            ax.scatter(buy_days, buy_prices, marker='^', color='green', label='Buy', s=100)
-            ax.scatter(sell_days, sell_prices, marker='v', color='red', label='Sell', s=100)
-            ax.set_title(f"{ticker} Price with Max Profit Trades")
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Price ($)")
-            ax.legend()
-            ax.grid(True)
-            st.pyplot(fig, clear_figure=True)
+    plt.figure(figsize=(12, 6))
+    plt.plot(prices.index, prices, label="Closing Price", color="blue")
+    plt.scatter(min_date, min_price, color="red", label=f"Buy ({min_date.date()})")
+    plt.scatter(max_date, max_price, color="green", label=f"Sell ({max_date.date()})")
+    plt.title("Max Profit Opportunity")
+    plt.xlabel("Date")
+    plt.ylabel("Price ($)")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    fig = plt.gcf()
+    plt.close(fig)
+    return fig
 
-            with st.expander("📊 View Trade Details"):
-                st.dataframe(trades, use_container_width=True)
+def plotly_sma_zoom(data, ticker, window=50):
+    prices = data['Close']
+    volume = data['Volume'] if 'Volume' in data.columns else None
+    ma = _compute_smas(prices, windows=(window,))[window]
 
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
+    up = prices.diff().fillna(0) >= 0
+    vol_colors = np.where(up, "#26a69a", "#ef5350") if volume is not None else None
+
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02,
+        row_heights=[0.72, 0.28], specs=[[{"secondary_y": False}], [{"secondary_y": False}]]
+    )
+    fig.add_trace(go.Scatter(x=prices.index, y=prices, name="Close", mode="lines"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {window}", mode="lines"), row=1, col=1)
+    if volume is not None:
+        fig.add_trace(go.Bar(x=volume.index, y=volume, name="Volume",
+                             marker=dict(color=vol_colors), opacity=0.7), row=2, col=1)
+
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(buttons=[
+            dict(count=1, label="1m", step="month", stepmode="backward"),
+            dict(count=3, label="3m", step="month", stepmode="backward"),
+            dict(count=6, label="6m", step="month", stepmode="backward"),
+            dict(step="yeartodate", label="YTD"),
+            dict(count=1, label="1y", step="year", stepmode="backward"),
+            dict(count=3, label="3y", step="year", stepmode="backward"),
+            dict(step="all")
+        ]),
+        row=1, col=1
+    )
+    fig.update_layout(
+        hovermode="x unified", dragmode="pan", showlegend=True,
+        margin=dict(l=10, r=10, t=40, b=10),
+        title=f"{ticker} — Zoomable Price / SMA ({window}-day)"
+    )
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1, showgrid=False)
+    return fig
+
 # ---------------------------
 # Streamlit App Layout
 # ---------------------------
@@ -163,14 +198,11 @@ if ticker and data is not None and not data.empty:
         ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations"]
     )
 
-     # If user chooses SMA, show a secondary dropdown for window size
-    
     if analysis_type == "Simple Moving Average":
-        sma_window = st.selectbox(
-            "Select SMA Window (days)",
-            [12, 50, 200],
-            index=1  # default to 50 days, optional
-        )
+        # ✅ define the slider BEFORE using sma_window
+        sma_window = st.slider("SMA Window (days)", min_value=5, max_value=250, value=50, step=1)
+        # live interactive chart
+        st.plotly_chart(plotly_sma_zoom(data, ticker, window=sma_window), use_container_width=True)
 
     if st.button("Generate Analysis"):
         st.subheader("Analysis Results")
@@ -178,6 +210,7 @@ if ticker and data is not None and not data.empty:
 
         if analysis_type == "Simple Moving Average":
             fig = simple_moving_average(ticker, period='3y', window=sma_window)
+            st.pyplot(fig)
         elif analysis_type == "Upwards and Downwards Run":
             fig = plot_upward_downward_runs(data, ticker)
         elif analysis_type == "Daily Returns":
