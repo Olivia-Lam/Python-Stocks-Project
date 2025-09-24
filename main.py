@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
 import numpy as np
+import Python_Project
 # ---------------------------
 # Download Stock Data Function
 # ---------------------------
@@ -128,7 +129,7 @@ def max_profit(ticker):
     except Exception as e:
         st.error(f"Error fetching data: {e}")
 
-        
+#Zoom Function
 def plotly_sma_zoom(data, ticker, window=50):
     prices = data['Close']
     volume = data['Volume'] if 'Volume' in data.columns else None
@@ -192,12 +193,48 @@ def macd(ticker):
     # Secondary chart for histogram comparison
     ax2.plot(prices.index, macd_line, label= 'MACD Line', color='purple')
     ax2.plot(prices.index, signal_line, label= 'Signal Line', color='orange')
-    colors = ['green' if h >= 0 else 'red' for h in histogram]
-    ax2.bar(prices.index, histogram, color=colors, alpha=0.5)
+    scale_factor = 2
+    scaled_histogram = histogram * scale_factor
+    colors = ['green' if h >= 0 else 'red' for h in scaled_histogram]
+    ax2.bar(prices.index, scaled_histogram, color=colors, alpha=0.5)
     ax2.set_xlabel('Date')
-    ax2.set_ylabel('Histogram')
+    ax2.set_ylabel('Histogram (Scaled)')
     ax2.grid(True, alpha=0.3)
     ax2.legend(loc='upper left')
+
+
+    return fig
+
+def rsi(ticker):
+    prices, rsi = Python_Project.rsi_calculation(ticker)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), gridspec_kw={'height_ratios': [2, 1.5]})
+    
+    # Plot price chart
+    ax1.plot(prices.index, prices, label="Close Price", color="blue")
+    ax1.set_title(f"{ticker} Price & RSI")
+    ax1.set_ylabel("Price ($)")
+    ax1.set_xlabel("Date")
+    ax1.grid(alpha=0.3)
+
+    #Add codes below if we want to merge charts
+    # ax3 = ax1.twinx()
+    # ax3.plot(prices.index, rsi, label="RSI (14)", color="purple")
+    # ax3.axhline(70, color='red', linestyle='--', alpha=0.7, label="Overbought (70)")
+    # ax3.axhline(30, color='green', linestyle='--', alpha=0.7, label="Oversold (30)")
+    # ax3.set_ylabel("RSI")
+    # ax3.tick_params(axis='y', labelcolor='purple')
+    # ax3.legend(loc='upper left')
+
+    # RSI chart below
+    ax2.plot(prices.index, rsi, label="RSI", color="purple")
+    ax2.axhline(70, color='red', linestyle='--', alpha=0.7, label="Overbought (70)")
+    ax2.axhline(30, color='green', linestyle='--', alpha=0.7, label="Oversold (30)")
+    ax2.set_ylabel("RSI")
+    ax2.set_xlabel("Date")
+    ax2.legend(loc='upper left')
+    ax2.grid(alpha=0.3)
+
+
 
 
     return fig
@@ -243,7 +280,7 @@ if ticker:
 if ticker and data is not None and not data.empty:
     analysis_type = st.selectbox(
         "Select Analysis Type",
-        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD"]
+        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD", "RSI"]
     )
 
     if analysis_type == "Simple Moving Average":
@@ -278,6 +315,8 @@ if ticker and data is not None and not data.empty:
                 fig = daily_returns(data)
             elif analysis_type == "MACD":
                 fig = macd(ticker)
+            elif analysis_type == "RSI":
+                fig = rsi(ticker)
             if fig:
                 st.pyplot(fig)
                 plt.close(fig)

@@ -133,7 +133,7 @@ def max_profit_calculations(ticker, period = '3y'):
     
     return trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)    
     
-
+# MACD Calculation Function
 def macd_calculations(ticker, period = '3y'):
     data = download_stock_data(ticker, period)
     prices = data['Close']
@@ -148,6 +148,31 @@ def macd_calculations(ticker, period = '3y'):
     histogram = macd_line - signal_line
 
     return prices, macd_line, signal_line, histogram
+
+
+# RSI Calculation Function
+def rsi_calculation(ticker, period='3y', window=14):
+    data = download_stock_data(ticker, period)
+    prices = data['Close']
+
+    # Calculate daily price changes
+    difference = prices.diff()
+
+    # Separate gains and losses
+    gain = difference.where(difference > 0, 0)
+    loss = -difference.where(difference < 0, 0)
+
+    # Calculate average gain & loss
+    avg_gain = gain.rolling(window=window, min_periods=window).mean()
+    avg_loss = loss.rolling(window=window, min_periods=window).mean()
+
+    # Calculate RS (needed for RSI)
+    rs = avg_gain / avg_loss
+
+    # Calculate RSI
+    rsi = 100 - (100 / (1 + rs))
+
+    return prices, rsi
 
 # Main Application
 if __name__ == "__main__":
