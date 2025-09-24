@@ -173,9 +173,3 @@ def rsi_calculation(ticker, period='3y', window=14):
     rsi = 100 - (100 / (1 + rs))
 
     return prices, rsi
-
-# Main Application
-if __name__ == "__main__":
-    ticker_symbol = input("Input Stock code: ")
-    
-    plot_upward_downward_runs(ticker_symbol)
