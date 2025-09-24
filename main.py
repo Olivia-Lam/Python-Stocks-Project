@@ -94,26 +94,28 @@ def daily_returns(data):
 
 def max_profit(ticker):
     try:
-        trades, buy_days, sell_days, prices_bought, prices_sold, total_profit = Python_Project.max_profit_calculations(ticker)
+        # Call the function from Python_Project.py
+        trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = Python_Project.max_profit_calculations(ticker)
         
         if not buy_days:
             st.warning("No profitable trades found in this period.")
+            return None
         else:
-            st.success(f"Total Potential Profit: ${total_profit}")
-
+            st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
+    
             # Plotting
             data = download_stock_data(ticker)
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.plot(data['Close'], label='Close Price', color='blue')
-            ax.scatter(buy_days, prices_bought, marker='^', color='green', label='Buy', s=20, alpha=0.5)
-            ax.scatter(sell_days, prices_sold, marker='v', color='red', label='Sell', s=20, alpha=0.5)
-            ax.set_title(f"{ticker} Price with Max Profit Trades")
+            ax.scatter(filtered_buy_days, filtered_buy_prices, marker='^', color='green', label='Buy', s=50, alpha=0.7)
+            ax.scatter(filtered_sell_days, filtered_sell_prices, marker='v', color='red', label='Sell', s=50, alpha=0.7)
+            ax.set_title(f"{ticker} Price with Top Max Profit Trades")
             ax.set_xlabel("Date")
             ax.set_ylabel("Price ($)")
             ax.legend()
             ax.grid(True)
 
-            return fig,trades
+            return fig,trades_df
         
     except Exception as e:
         st.error(f"Error fetching data: {e}")
@@ -175,13 +177,18 @@ if ticker and data is not None and not data.empty:
         st.write("Shows the selected analysis compared to the actual stock price")
 
         if analysis_type == "Max Profit Calculations":
-            fig,trades = max_profit(ticker)
+            fig,trades_df = max_profit(ticker)
             if fig:
                 st.pyplot(fig)
                 plt.close(fig)
-            if trades is not None:
+            if trades_df is not None:
+                # Display trades in an expandable section, user can sort columns too
                 with st.expander("📊 View Trade Details"):
-                    st.dataframe(trades, use_container_width=True)
+                    st.dataframe(trades_df.style.format({
+                        "Buy Price": "{:.2f}",
+                        "Sell Price": "{:.2f}", 
+                        "Profit": "{:.2f}"
+                    }), use_container_width=True)
         else:
             if analysis_type == "Simple Moving Average":
                 fig = simple_moving_average(ticker, period='3y', window=sma_window)
