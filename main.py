@@ -145,20 +145,20 @@ def plotly_sma_zoom(data, ticker, window=50):
     if volume is not None:
         fig.add_trace(go.Bar(x=volume.index, y=volume, name="Volume",
                              marker=dict(color=vol_colors), opacity=0.7), row=2, col=1)
-
     fig.update_xaxes(
-        rangeslider_visible=True,
-        rangeselector=dict(buttons=[
-            dict(count=1, label="1m", step="month", stepmode="backward"),
-            dict(count=3, label="3m", step="month", stepmode="backward"),
-            dict(count=6, label="6m", step="month", stepmode="backward"),
-            dict(step="yeartodate", label="YTD"),
-            dict(count=1, label="1y", step="year", stepmode="backward"),
-            dict(count=3, label="3y", step="year", stepmode="backward"),
-            dict(step="all")
-        ]),
-        row=1, col=1
-    )
+    rangeslider_visible=True,
+    rangeselector=dict(buttons=[
+        dict(count=1, label="1m", step="month", stepmode="backward"),
+        dict(count=3, label="3m", step="month", stepmode="backward"),
+        dict(count=6, label="6m", step="month", stepmode="backward"),
+        # 🔧 FIX: replace 'yeartodate' with step='year', stepmode='todate'
+        dict(label="YTD", step="year", stepmode="todate"),
+        dict(count=1, label="1y", step="year", stepmode="backward"),
+        dict(count=3, label="3y", step="year", stepmode="backward"),
+        dict(step="all", label="All")
+    ]),
+    row=1, col=1
+)
     fig.update_layout(
         hovermode="x unified", dragmode="pan", showlegend=True,
         margin=dict(l=10, r=10, t=40, b=10),
