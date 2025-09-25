@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
 import numpy as np
-import Python_Project
+
 # ---------------------------
 # Download Stock Data Function
 # ---------------------------
@@ -229,7 +229,7 @@ def max_profit(ticker):
 def _ema(s, span):
     return s.ewm(span=span, adjust=False).mean()
 
-def _macd_series(prices, fast=12, slow=26, signal=9):
+def _macd(prices, fast=12, slow=26, signal=9):
     ema_fast = _ema(prices, fast)
     ema_slow = _ema(prices, slow)
     macd = ema_fast - ema_slow
