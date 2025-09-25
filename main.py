@@ -229,13 +229,7 @@ def max_profit(ticker):
 def _ema(s, span):
     return s.ewm(span=span, adjust=False).mean()
 
-def _macd(prices, fast=12, slow=26, signal=9):
-    ema_fast = _ema(prices, fast)
-    ema_slow = _ema(prices, slow)
-    macd = ema_fast - ema_slow
-    sig = _ema(macd, signal)
-    hist = macd - sig
-    return macd, sig, hist
+
 
 #Zoom Function
 def plotly_sma_zoom(
@@ -248,8 +242,7 @@ def plotly_sma_zoom(
     ma = _compute_smas(prices, windows=(window,))[window]
 
     # momentum (MACD)
-    macd, macd_sig, macd_hist = _macd(prices)
-
+    prices, macd_line, signal_line, histogram = macd_calculations(ticker)
     # volume colors
     up = prices.diff().fillna(0) >= 0
     vol_colors = np.where(up, "#26a69a", "#ef5350") if volume is not None else None
@@ -268,13 +261,13 @@ def plotly_sma_zoom(
     if show_momentum:
         # histogram first so lines are on top
         fig.add_trace(
-            go.Bar(x=macd_hist.index, y=macd_hist, name="MACD Hist",
-                   marker=dict(color=np.where(macd_hist >= 0, "rgba(55, 170, 70, 0.6)", "rgba(230, 80, 80, 0.6)")),
+            go.Bar(x=histogram.index, y=histogram, name="MACD Hist",
+                   marker=dict(color=np.where(histogram >= 0, "rgba(55, 170, 70, 0.6)", "rgba(230, 80, 80, 0.6)")),
                    opacity=0.8),
             row=1, col=1
         )
-        fig.add_trace(go.Scatter(x=macd.index, y=macd, name="MACD", mode="lines"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=macd_sig.index, y=macd_sig, name="Signal", mode="lines"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=macd_line.index, y=macd_line, name="MACD", mode="lines"), row=1, col=1)
+        fig.add_trace(go.Scatter(x=signal_line.index, y=signal_line, name="Signal", mode="lines"), row=1, col=1)
         # zero reference line
         fig.add_hline(y=0, line_width=1, line_dash="dot", opacity=0.4, row=1, col=1)
 
@@ -513,7 +506,6 @@ def rsi(ticker):
 
 def plotly_combined_chart(
     data, ticker, *,
-    chart_type="Line",     # "Line" | "Candlestick" | "Bars"
     sma_window=50,
     show_sma=True,
     show_runs=False,
@@ -523,205 +515,132 @@ def plotly_combined_chart(
     show_rsi=False
 ):
     prices = data["Close"]
-    volume = data["Volume"] if "Volume" in data.columns else None
 
-    # Reuse your SMA calc
-    ma = _compute_smas(prices, windows=(sma_window,))[sma_window] if show_sma else None
-
-    # Pull indicators from your existing MODULE (no changes to their code)
-    macd_line = signal_line = hist = None
+    # Determine the number of rows dynamically
+    num_rows = 1  # For the main price chart
     if show_macd:
-        _, macd_line, signal_line, hist = macd_calculations(ticker)
-    #rsi = None
+        num_rows += 1
+    if show_rsi:
+        num_rows += 1
+    if show_returns:
+        num_rows += 1
     
+    # Calculate row heights: indicators get 20% of space, price chart gets the rest
+    indicator_heights = 0.20
+    price_height = 1 - (num_rows - 1) * indicator_heights
+    row_heights = [indicator_heights] * (num_rows - 1) + [price_height]
+    
+    # All subplots will have a single y-axis since returns and volume are now on their own charts
+    specs = [[{"secondary_y": False}]] * num_rows
 
-    # Volume bar colors
-    up = prices.diff().fillna(0) >= 0
-    vol_colors = np.where(up, "#26a69a", "#ef5350") if volume is not None else None
-
-    # Top pane appears only if momentum/RSI is on
-    top_on = show_macd or show_rsi
-    row_heights = [0.32, 0.68] if top_on else [0.0001, 0.9999]
-
+    # Initialize the subplot figure
     fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02,
+        rows=num_rows, cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.05,
         row_heights=row_heights,
-        specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
+        specs=specs
     )
 
-    # ---- Row 1: Momentum / RSI (optional) ----
+    # Determine the row for the main price chart
+    price_row = num_rows
+    current_indicator_row = 0
+
+    # --- Add MACD to the first available indicator row ---
     if show_macd:
-        fig.add_trace(
-            go.Bar(x=hist.index, y=hist, name="MACD Hist",
-                   marker=dict(color=np.where(hist >= 0, "rgba(55,170,70,0.6)", "rgba(230,80,80,0.6)")),
-                   opacity=0.85),
-            row=1, col=1, secondary_y=False
-        )
-        fig.add_trace(go.Scatter(x=macd_line.index, y=macd_line, name="MACD", mode="lines"),
-                      row=1, col=1, secondary_y=False)
-        fig.add_trace(go.Scatter(x=signal_line.index, y=signal_line, name="Signal", mode="lines"),
-                      row=1, col=1, secondary_y=False)
-        fig.add_hline(y=0, line_width=1, line_dash="dot", opacity=0.4, row=1, col=1)
+        current_indicator_row += 1
+        # Assumed function
+        prices, macd_line, signal_line, histogram = macd_calculations(ticker)
+        fig.add_trace(go.Bar(
+            x=histogram.index, y=histogram, name="MACD Hist",
+            marker=dict(color=["#26a69a" if h > 0 else "#ef5350" for h in histogram]),
+            opacity=0.5
+        ), row=current_indicator_row, col=1)
+        fig.add_trace(go.Scatter(x=macd_line.index, y=macd_line, name="MACD Line", line=dict(color="#2962FF")),
+                      row=current_indicator_row, col=1)
+        fig.add_trace(go.Scatter(x=signal_line.index, y=signal_line, name="Signal Line", line=dict(color="#FF6D00")),
+                      row=current_indicator_row, col=1)
+        fig.update_yaxes(title_text="MACD", row=current_indicator_row, col=1)
+        fig.add_hline(y=0, line_width=1, line_dash="dash", opacity=0.4, line_color="#888", row=current_indicator_row, col=1)
 
+    # --- Add RSI to the next available indicator row ---
     if show_rsi:
+        current_indicator_row += 1
+        # Assumed function
+        _, rsi_values = rsi_calculation(ticker)
+        fig.add_trace(go.Scatter(x=rsi_values.index, y=rsi_values, name="RSI", line=dict(color="#785cff")),
+                      row=current_indicator_row, col=1)
+        fig.add_hline(y=70, line_width=1, line_dash="dash", opacity=0.7, line_color="#cc3333", name="Overbought", row=current_indicator_row, col=1)
+        fig.add_hline(y=30, line_width=1, line_dash="dash", opacity=0.7, line_color="#33cc33", name="Oversold", row=current_indicator_row, col=1)
+        fig.update_yaxes(title_text="RSI", row=current_indicator_row, col=1, range=[0, 100])
         
-        prices, rsi = rsi_calculation(ticker)
+    # --- Add Daily Returns to the next available indicator row ---
+    if show_returns:
+        current_indicator_row += 1
+        returns = prices.pct_change() * 100.0
+        fig.add_trace(go.Bar(x=returns.index, y=returns, name="Daily Returns (%)", marker=dict(color="#9467bd")),
+                      row=current_indicator_row, col=1)
+        fig.update_yaxes(title_text="Daily Returns (%)", row=current_indicator_row, col=1)
 
-    # Subplots: 2 rows, shared x-axis
-        fig = make_subplots(
-            rows=2, cols=1, shared_xaxes=True,
-            row_heights=[0.4, 0.6],  # price smaller, RSI bigger
-            vertical_spacing=0.05
-        )
+    # --- Main Price Chart and Overlays (always in the last row) ---
+    fig.add_trace(go.Scatter(x=prices.index, y=prices, name="Close Price", mode="lines", line=dict(color="#1f77b4")),
+                  row=price_row, col=1, secondary_y=False)
 
-        # --- Row 1: Price ---
-        fig.add_trace(go.Scatter(
-            x=prices.index, y=prices, mode='lines', name="Price"
-        ), row=1, col=1)
+    # Simple Moving Average (SMA)
+    if show_sma:
+        # Assumed function
+        ma = _compute_smas(prices, windows=(sma_window,))[sma_window]
+        fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {sma_window}", mode="lines", line=dict(color="#ff7f0e")),
+                      row=price_row, col=1, secondary_y=False)
 
-        # --- Row 2: RSI ---
-        fig.add_trace(go.Scatter(
-            x=prices.index, y=rsi, mode='lines', name="RSI", line=dict(color='purple')
-        ), row=2, col=1)
-
-        # Add RSI threshold lines as traces (so they appear in slider)
-        fig.add_trace(go.Scatter(
-            x=prices.index, y=[70]*len(prices),
-            mode='lines', name='Overbought (70)',
-            line=dict(color='red', dash='dash'),
-            opacity=0.7
-        ), row=2, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=prices.index, y=[30]*len(prices),
-            mode='lines', name='Oversold (30)',
-            line=dict(color='green', dash='dash'),
-            opacity=0.7
-        ), row=2, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=prices.index, y=[50]*len(prices),
-            mode='lines', name='Midline (50)',
-            line=dict(color='grey', dash='dash'),
-            opacity=0.7
-        ), row=2, col=1)
-
-        # Layout with range slider only on RSI chart
-        fig.update_layout(
-            height=700,
-            hovermode='x unified',
-            template='plotly_white',
-            xaxis2=dict(
-                rangeslider=dict(visible=True),  # slider below RSI chart
-                title='Date'
-            ),
-            yaxis2=dict(title='RSI')
-        )
-
-        return fig
-    # ---- Row 2: Price (Line / Candles / Bars) + overlays ----
-    has_ohlc = {"Open", "High", "Low", "Close"}.issubset(data.columns)
-    if chart_type == "Candlestick" and has_ohlc:
-        fig.add_trace(go.Candlestick(
-            x=data.index, open=data["Open"], high=data["High"],
-            low=data["Low"], close=data["Close"], name="Candles"
-        ), row=2, col=1, secondary_y=False)
-    elif chart_type == "Bars" and has_ohlc:
-        fig.add_trace(go.Ohlc(
-            x=data.index, open=data["Open"], high=data["High"],
-            low=data["Low"], close=data["Close"], name="OHLC"
-        ), row=2, col=1, secondary_y=False)
-    else:
-        fig.add_trace(go.Scatter(x=prices.index, y=prices, name="Close", mode="lines"),
-                      row=2, col=1, secondary_y=False)
-
-    if show_sma and ma is not None:
-        fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {sma_window}", mode="lines"),
-                      row=2, col=1, secondary_y=False)
-
-    # Trend runs shading vs SMA50
+    # Trend Runs
     if show_runs:
+        # Assumed function
         ma50 = _compute_smas(prices, windows=(50,))[50]
         trend = prices > ma50
         up_fill = prices.where(trend)
         dn_fill = prices.where(~trend)
-        fig.add_trace(go.Scatter(x=ma50.index, y=ma50, mode="lines",
-                                 line=dict(width=0), showlegend=False, hoverinfo="skip"),
-                      row=2, col=1)
-        fig.add_trace(go.Scatter(x=prices.index, y=up_fill, name="Upward Trend",
-                                 mode="lines", line=dict(width=0),
-                                 fill="tonexty", fillcolor="rgba(76,175,80,0.25)"),
-                      row=2, col=1)
-        fig.add_trace(go.Scatter(x=ma50.index, y=ma50, mode="lines",
-                                 line=dict(width=0), showlegend=False, hoverinfo="skip"),
-                      row=2, col=1)
-        fig.add_trace(go.Scatter(x=prices.index, y=dn_fill, name="Downward Trend",
-                                 mode="lines", line=dict(width=0),
-                                 fill="tonexty", fillcolor="rgba(239,83,80,0.25)"),
-                      row=2, col=1)
+        fig.add_trace(go.Scatter(x=prices.index, y=up_fill, name="Upward Trend", mode="lines",
+                                 line=dict(width=0), fill="tonexty", fillcolor="rgba(76,175,80,0.25)"),
+                      row=price_row, col=1)
+        fig.add_trace(go.Scatter(x=prices.index, y=dn_fill, name="Downward Trend", mode="lines",
+                                 line=dict(width=0), fill="tonexty", fillcolor="rgba(239,83,80,0.25)"),
+                      row=price_row, col=1)
+        fig.add_trace(go.Scatter(x=ma50.index, y=ma50, mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"),
+                      row=price_row, col=1)
 
-    # Max-profit markers (use your calculator)
+    # Max Profit Markers
     if show_maxprofit:
-        trades_df,filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(ticker)
-        if filtered_buy_days and filtered_sell_days:
-            st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
+        # Assumed function
+        _, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(ticker)
+        # Assumed function
+        # st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
 
-            # Convert to datetime to align with plotly x-axis
-            filtered_buy_days = pd.to_datetime(filtered_buy_days)
-            filtered_sell_days = pd.to_datetime(filtered_sell_days)
+        fig.add_trace(go.Scatter(
+            x=filtered_buy_days, y=filtered_buy_prices, mode='markers', name='Buy',
+            marker=dict(symbol='triangle-up', color='green', size=12, line=dict(width=1, color="black"))
+        ), row=price_row, col=1, secondary_y=False)
 
-            # Add buy markers
-            fig.add_trace(go.Scatter(
-                x=filtered_buy_days,
-                y=filtered_buy_prices,
-                mode='markers',
-                marker=dict(symbol='triangle-up', color='green', size=12, line=dict(width=1, color="black")),
-                name='Buy'
-            ), row=2, col=1)
+        fig.add_trace(go.Scatter(
+            x=filtered_sell_days, y=filtered_sell_prices, mode='markers', name='Sell',
+            marker=dict(symbol='triangle-down', color='red', size=12, line=dict(width=1, color="black"))
+        ), row=price_row, col=1, secondary_y=False)
 
-            # Add sell markers
-            fig.add_trace(go.Scatter(
-                x=filtered_sell_days,
-                y=filtered_sell_prices,
-                mode='markers',
-                marker=dict(symbol='triangle-down', color='red', size=12, line=dict(width=1, color="black")),
-                name='Sell'
-            ), row=2, col=1)
-
-            fig.update_layout(
-    title=f"{ticker} Price with Most Profitable Trades",
-    hovermode='x unified',
-    template='plotly_white',
-    xaxis2=dict(
-        title='Date',
-        rangeslider=dict(visible=True),  # ✅ applies slider to bottom chart
-        rangeselector=dict(               # ✅ optional zoom buttons
-            buttons=list([
-                dict(count=1, label="1m", step="month", stepmode="backward"),
-                dict(count=3, label="3m", step="month", stepmode="backward"),
-                dict(count=6, label="6m", step="month", stepmode="backward"),
-                dict(step="all", label="All")
-            ])
-        )
-    ),
-    yaxis2=dict(title='Price ($)')  # ✅ ensure price axis is labeled correctly
-)
-
-        return fig
-    # Daily returns on secondary y (bottom)
-    if show_returns:
-        rets = prices.pct_change() * 100.0
-        fig.add_trace(go.Scatter(x=rets.index, y=rets, name="Daily Returns (%)", mode="lines"),
-                      row=2, col=1, secondary_y=True)
-
-    # Volume
-    if volume is not None:
-        fig.add_trace(go.Bar(x=volume.index, y=volume, name="Volume",
-                             marker=dict(color=vol_colors), opacity=0.7),
-                      row=2, col=1, secondary_y=True)
-        fig.update_yaxes(title_text="Volume / Returns", row=2, col=1, secondary_y=True, showgrid=False)
-
-    # Controls and layout
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        hovermode="x unified",
+        dragmode="pan",
+        showlegend=True,
+        title=f"{ticker} — Combined Analysis",
+        template='plotly_white',
+        height=800,
+        width=1200
+    )
+    
+    # Update y-axis titles for the main chart
+    fig.update_yaxes(title_text="Price", row=price_row, col=1, secondary_y=False)
+    
+    # Ensure rangeslider is on the final (price) chart's x-axis
     fig.update_xaxes(
         rangeslider_visible=True,
         rangeselector=dict(buttons=[
@@ -733,18 +652,10 @@ def plotly_combined_chart(
             dict(count=3, label="3y", step="year", stepmode="backward"),
             dict(step="all", label="All")
         ]),
-        row=2, col=1
+        row=price_row, col=1
     )
-    fig.update_layout(
-        hovermode="x unified", dragmode="pan", showlegend=True,
-        margin=dict(l=10, r=10, t=40, b=10),
-        title=f"{ticker} — {chart_type} + Overlays"
-    )
-    fig.update_yaxes(title_text="Price", row=2, col=1, secondary_y=False)
-    fig.update_yaxes(zeroline=False, row=2, col=1)  # cleaner bottom axis
+
     return fig
-
-
 
 
 # ---------------------------
@@ -785,16 +696,16 @@ if ticker:
         ticker = None
 
 # Step 3: Show Analysis Options only if ticker is valid
-if ticker and data is not None and not data.empty:
-    analysis_type = st.selectbox(
-        "Select Analysis Type",
-        ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD (Moving Average Convergence Diverence)", "RSI (Relative Strength Index)"]
-    )
+# if ticker and data is not None and not data.empty:
+#     analysis_type = st.selectbox(
+#         "Select Analysis Type",
+#         ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD (Moving Average Convergence Diverence)", "RSI (Relative Strength Index)"]
+#     )
 
-    if analysis_type == "Simple Moving Average":
-    # --- Top controls ---
-        chart_type = st.selectbox("Chart Type", ["Line", "Candlestick", "Bars"])
-        sma_window = st.slider("SMA Window (days)", 5, 250, 50, 1)
+    # if analysis_type == "Simple Moving Average":
+    # # --- Top controls ---
+    #     chart_type = st.selectbox("Chart Type", ["Line", "Candlestick", "Bars"])
+    #     sma_window = st.slider("SMA Window (days)", 5, 250, 50, 1)
 
     # --- Feature checkboxes (layer onto SAME chart) ---
     c1, c2, c3 = st.columns(3)
@@ -802,23 +713,32 @@ if ticker and data is not None and not data.empty:
         cb_sma   = st.checkbox("SMA", value=True)
         cb_runs  = st.checkbox("Trend Runs", value=False)
     with c2:
-        cb_macd  = st.checkbox("MACD (top panel)", value=False)
+        cb_macd  = st.checkbox("MACD", value=False)
         cb_rets  = st.checkbox("Daily Returns (bottom)", value=False)
     with c3:
-        cb_maxp  = st.checkbox("Max Profit markers", value=False)
-        cb_rsi   = st.checkbox("RSI (top panel)", value=False)
-
-    fig = plotly_combined_chart(
-        data, ticker,
-        chart_type=chart_type,
-        sma_window=sma_window,
-        show_sma=cb_sma,
-        show_runs=cb_runs,
-        show_maxprofit=cb_maxp,
-        show_returns=cb_rets,
-        show_macd=cb_macd,
-        show_rsi=cb_rsi
+        cb_maxp  = st.checkbox("Max Profit", value=False)
+        cb_rsi   = st.checkbox("RSI", value=False)
+    if cb_sma:
+        sma_window = st.slider(
+        'SMA Window',
+        min_value=1,
+        max_value=200,
+        value=50,
+        step=1
     )
+    else:
+    # If the checkbox is not ticked, set a default value for sma_window
+        sma_window = 50
+    fig = plotly_combined_chart(
+    data, ticker,
+    sma_window=sma_window,
+    show_sma=cb_sma,
+    show_runs=cb_runs,
+    show_maxprofit=cb_maxp,
+    show_returns=cb_rets,
+    show_macd=cb_macd,
+    show_rsi=cb_rsi
+)
     st.plotly_chart(fig, use_container_width=True)
 
     # --- Explanations shown ONLY for enabled features; readable in dark/light themes ---
@@ -844,38 +764,38 @@ if ticker and data is not None and not data.empty:
                 use_container_width=True
             )
 
-    if st.button("Generate Analysis"):
-        st.subheader("Analysis Results")
-        st.write("Shows the selected analysis compared to the actual stock price")
+    # if st.button("Generate Analysis"):
+    #     st.subheader("Analysis Results")
+    #     st.write("Shows the selected analysis compared to the actual stock price")
 
-        if analysis_type == "Max Profit Calculations":
-            # fig,trades_df = max_profit(ticker)
-            fig,trades_df = max_profit(ticker)
-            if fig:
-                st.plotly_chart(fig, use_container_width=True)
-            if trades_df is not None:
-                # Display trades in an expandable section, user can sort columns too
-                with st.expander("📊 View Trade Details"):
-                    st.dataframe(trades_df.style.format({
-                        "Buy Price": "{:.2f}",
-                        "Sell Price": "{:.2f}", 
-                        "Profit": "{:.2f}"
-                    }), use_container_width=True)
-        else:
-            if analysis_type == "Simple Moving Average":
-                st.plotly_chart(plotly_sma_zoom(data, ticker, window=sma_window), use_container_width=True)
-            elif analysis_type == "Upwards and Downwards Run":
-                fig = plot_upward_downward_runs(data, ticker)
-            elif analysis_type == "Daily Returns":
-                fig = daily_returns(data)
-            elif analysis_type == "MACD (Moving Average Convergence Diverence)":
-                fig = macd(ticker)
-            elif analysis_type == "RSI (Relative Strength Index)":
-                fig = rsi(ticker)
-            if fig:
-                st.pyplot(fig)
-                plt.close(fig)
-                #st.plotly_chart(fig, use_container_width=True)
+    #     if analysis_type == "Max Profit Calculations":
+    #         # fig,trades_df = max_profit(ticker)
+    #         fig,trades_df = max_profit(ticker)
+    #         if fig:
+    #             st.plotly_chart(fig, use_container_width=True)
+    #         if trades_df is not None:
+    #             # Display trades in an expandable section, user can sort columns too
+    #             with st.expander("📊 View Trade Details"):
+    #                 st.dataframe(trades_df.style.format({
+    #                     "Buy Price": "{:.2f}",
+    #                     "Sell Price": "{:.2f}", 
+    #                     "Profit": "{:.2f}"
+    #                 }), use_container_width=True)
+    #     else:
+    #         if analysis_type == "Simple Moving Average":
+    #             st.plotly_chart(plotly_sma_zoom(data, ticker, window=sma_window), use_container_width=True)
+    #         elif analysis_type == "Upwards and Downwards Run":
+    #             fig = plot_upward_downward_runs(data, ticker)
+    #         elif analysis_type == "Daily Returns":
+    #             fig = daily_returns(data)
+    #         elif analysis_type == "MACD (Moving Average Convergence Diverence)":
+    #             fig = macd(ticker)
+    #         elif analysis_type == "RSI (Relative Strength Index)":
+    #             fig = rsi(ticker)
+    #         if fig:
+    #             st.pyplot(fig)
+    #             plt.close(fig)
+    #             #st.plotly_chart(fig, use_container_width=True)
 
 else:
     if ticker_selection != "Others":
