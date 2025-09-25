@@ -710,11 +710,11 @@ if ticker:
     # --- Feature checkboxes (layer onto SAME chart) ---
     c1, c2, c3 = st.columns(3)
     with c1:
-        cb_sma   = st.checkbox("SMA", value=True)
+        cb_sma   = st.checkbox("SMA", value=False)
         cb_runs  = st.checkbox("Trend Runs", value=False)
     with c2:
         cb_macd  = st.checkbox("MACD", value=False)
-        cb_rets  = st.checkbox("Daily Returns (bottom)", value=False)
+        cb_rets  = st.checkbox("Daily Returns", value=False)
     with c3:
         cb_maxp  = st.checkbox("Max Profit", value=False)
         cb_rsi   = st.checkbox("RSI", value=False)
