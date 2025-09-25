@@ -172,10 +172,4 @@ def plot_simple_daily_returns(ticker, period='3y'):
 #     # Calculate RSI
 #     rsi = 100 - (100 / (1 + rs))
 
-#     return prices, rsi
-
-# Main Application
-if __name__ == "__main__":
-    ticker_symbol = input("Input Stock code: ")
-    
-    plot_upward_downward_runs(ticker_symbol)
+    return prices, rsi
