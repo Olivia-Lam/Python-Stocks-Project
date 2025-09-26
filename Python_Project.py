@@ -172,4 +172,4 @@ def plot_simple_daily_returns(ticker, period='3y'):
 #     # Calculate RSI
 #     rsi = 100 - (100 / (1 + rs))
 
-    return prices, rsi
+    # return prices, rsi
