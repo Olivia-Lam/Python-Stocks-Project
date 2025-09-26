@@ -275,27 +275,67 @@ def plotly_sma_zoom(
     fig.add_trace(go.Scatter(x=prices.index, y=prices, name="Close", mode="lines"), row=2, col=1)
     fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {window}", mode="lines"), row=2, col=1)
 
-    # Optional overlays on price (unchanged from your version)
+    # Optional overlays on price (FIXED TREND RUNS LOGIC)
     if show_runs:
         ma50 = _compute_smas(prices, windows=(50,))[50]
-        trend = (prices > ma50)
-        up_fill = prices.where(trend)
-        dn_fill = prices.where(~trend)
-        # baseline + filled areas
-        fig.add_trace(go.Scatter(x=ma50.index, y=ma50, mode="lines",
-                                 line=dict(width=0), showlegend=False, hoverinfo="skip"),
-                      row=2, col=1)
-        fig.add_trace(go.Scatter(x=prices.index, y=up_fill, name="Upward Trend",
-                                 mode="lines", line=dict(width=0),
-                                 fill="tonexty", fillcolor="rgba(76,175,80,0.25)"),
-                      row=2, col=1)
-        fig.add_trace(go.Scatter(x=ma50.index, y=ma50, mode="lines",
-                                 line=dict(width=0), showlegend=False, hoverinfo="skip"),
-                      row=2, col=1)
-        fig.add_trace(go.Scatter(x=prices.index, y=dn_fill, name="Downward Trend",
-                                 mode="lines", line=dict(width=0),
-                                 fill="tonexty", fillcolor="rgba(239,83,80,0.25)"),
-                      row=2, col=1)
+        trend_up = (prices > ma50)  # True when price is above MA50 (upward trend)
+        
+        # Create filled areas for upward and downward trends
+        # GREEN for upward (price > MA), RED for downward (price < MA)
+        fig.add_trace(go.Scatter(
+            x=prices.index, 
+            y=ma50, 
+            mode="lines",
+            line=dict(width=0), 
+            showlegend=False, 
+            hoverinfo="skip",
+            name="MA50_baseline"
+        ), row=2, col=1)
+        
+        # GREEN fill for upward trend (price above MA50)
+        fig.add_trace(go.Scatter(
+            x=prices.index, 
+            y=prices.where(trend_up), 
+            name="📈 Upward Trend",
+            mode="lines", 
+            line=dict(width=0),
+            fill="tonexty", 
+            fillcolor="rgba(34, 139, 34, 0.3)",  # Forest Green with transparency
+            hovertemplate="Upward Trend<br>Date: %{x}<br>Price: $%{y:.2f}<extra></extra>"
+        ), row=2, col=1)
+        
+        # Add MA50 baseline again for downward fill
+        fig.add_trace(go.Scatter(
+            x=prices.index, 
+            y=ma50, 
+            mode="lines",
+            line=dict(width=0), 
+            showlegend=False, 
+            hoverinfo="skip",
+            name="MA50_baseline2"
+        ), row=2, col=1)
+        
+        # RED fill for downward trend (price below MA50)
+        fig.add_trace(go.Scatter(
+            x=prices.index, 
+            y=prices.where(~trend_up), 
+            name="📉 Downward Trend",
+            mode="lines", 
+            line=dict(width=0),
+            fill="tonexty", 
+            fillcolor="rgba(220, 20, 60, 0.3)",  # Crimson Red with transparency
+            hovertemplate="Downward Trend<br>Date: %{x}<br>Price: $%{y:.2f}<extra></extra>"
+        ), row=2, col=1)
+        
+        # Add the MA50 line on top for visibility
+        fig.add_trace(go.Scatter(
+            x=ma50.index, 
+            y=ma50, 
+            name="MA50 Reference",
+            mode="lines", 
+            line=dict(color="#4169E1", width=1.5, dash="dot"),  # Royal Blue dotted line
+            hovertemplate="MA50: $%{y:.2f}<extra></extra>"
+        ), row=2, col=1)
 
     # Volume on secondary y (row 2)
     if volume is not None:
@@ -502,8 +542,6 @@ def rsi(ticker):
         st.error(f"Error fetching data: {e}")
 
 
-
-
 def plotly_combined_chart(
     data, ticker, *,
     sma_window=50,
@@ -593,28 +631,59 @@ def plotly_combined_chart(
         fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {sma_window}", mode="lines", line=dict(color="#ff7f0e")),
                       row=price_row, col=1, secondary_y=False)
 
-    # Trend Runs
+    # FIXED Trend Runs - Clear Green/Red Logic
     if show_runs:
-        # Assumed function
         ma50 = _compute_smas(prices, windows=(50,))[50]
-        trend = prices > ma50
-        up_fill = prices.where(trend)
-        dn_fill = prices.where(~trend)
-        fig.add_trace(go.Scatter(x=prices.index, y=up_fill, name="Upward Trend", mode="lines",
-                                 line=dict(width=0), fill="tonexty", fillcolor="rgba(76,175,80,0.25)"),
-                      row=price_row, col=1)
-        fig.add_trace(go.Scatter(x=prices.index, y=dn_fill, name="Downward Trend", mode="lines",
-                                 line=dict(width=0), fill="tonexty", fillcolor="rgba(239,83,80,0.25)"),
-                      row=price_row, col=1)
-        fig.add_trace(go.Scatter(x=ma50.index, y=ma50, mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"),
-                      row=price_row, col=1)
+        trend_up = (prices > ma50)  # True when price is above MA50 (bullish)
+        
+        # Add MA50 reference line first (baseline for fills)
+        fig.add_trace(go.Scatter(
+            x=ma50.index, y=ma50, 
+            name="MA50 Reference",
+            mode="lines", 
+            line=dict(color="#4169E1", width=2, dash="dot"),
+            hovertemplate="MA50: $%{y:.2f}<extra></extra>"
+        ), row=price_row, col=1)
+        
+        # GREEN areas: Price ABOVE MA50 (Upward/Bullish trend)
+        fig.add_trace(go.Scatter(
+            x=prices.index, 
+            y=prices.where(trend_up),  # Only show prices when they're above MA50
+            fill='tonexty',  # Fill to the previous trace (MA50)
+            fillcolor='rgba(34, 139, 34, 0.25)',  # Forest Green
+            mode='none',
+            name='📈 Above MA50 (Bullish)',
+            hovertemplate="Bullish Trend<br>Price: $%{y:.2f}<br>Above MA50<extra></extra>",
+            showlegend=True
+        ), row=price_row, col=1)
+        
+        # Add MA50 again as baseline for red fill
+        fig.add_trace(go.Scatter(
+            x=ma50.index, y=ma50, 
+            mode="lines", 
+            line=dict(width=0), 
+            showlegend=False, 
+            hoverinfo="skip"
+        ), row=price_row, col=1)
+        
+        # RED areas: Price BELOW MA50 (Downward/Bearish trend)  
+        fig.add_trace(go.Scatter(
+            x=prices.index, 
+            y=prices.where(~trend_up),  # Only show prices when they're below MA50
+            fill='tonexty',  # Fill to the previous trace (MA50)
+            fillcolor='rgba(220, 20, 60, 0.25)',  # Crimson Red
+            mode='none',
+            name='📉 Below MA50 (Bearish)',
+            hovertemplate="Bearish Trend<br>Price: $%{y:.2f}<br>Below MA50<extra></extra>",
+            showlegend=True
+        ), row=price_row, col=1)
 
     # Max Profit Markers
     if show_maxprofit:
         # Assumed function
         _, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(ticker)
         # Assumed function
-        # st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
+        st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
 
         fig.add_trace(go.Scatter(
             x=filtered_buy_days, y=filtered_buy_prices, mode='markers', name='Buy',
@@ -634,26 +703,40 @@ def plotly_combined_chart(
         title=f"{ticker} — Combined Analysis",
         template='plotly_white',
         height=800,
-        width=1200
+        width=1200,
+        # MOVE RANGE SELECTOR TO LAYOUT LEVEL - appears right below title
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=[
+                    dict(count=1, label="1m", step="month", stepmode="backward"),
+                    dict(count=3, label="3m", step="month", stepmode="backward"),
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(label="YTD", step="year", stepmode="todate"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
+                    dict(step="all", label="All")
+                ],
+                # Position the selector right below the title
+                y=1.02,  # Above the chart area, below title
+                x=0.01,  # Left aligned
+                bgcolor="rgba(0,0,0,0)",  # Transparent background
+                bordercolor="rgba(0,0,0,0)",
+                font=dict(size=12)
+            ),
+            # Keep rangeslider at the bottom
+            rangeslider=dict(visible=True)
+        )
     )
     
     # Update y-axis titles for the main chart
     fig.update_yaxes(title_text="Price", row=price_row, col=1, secondary_y=False)
     
-    # Ensure rangeslider is on the final (price) chart's x-axis
-    fig.update_xaxes(
-        rangeslider_visible=True,
-        rangeselector=dict(buttons=[
-            dict(count=1, label="1m", step="month", stepmode="backward"),
-            dict(count=3, label="3m", step="month", stepmode="backward"),
-            dict(count=6, label="6m", step="month", stepmode="backward"),
-            dict(label="YTD", step="year", stepmode="todate"),
-            dict(count=1, label="1y", step="year", stepmode="backward"),
-            dict(count=3, label="3y", step="year", stepmode="backward"),
-            dict(step="all", label="All")
-        ]),
-        row=price_row, col=1
-    )
+    # Remove rangeslider and rangeselector from individual x-axes since we moved them to layout
+    for i in range(1, num_rows + 1):
+        fig.update_xaxes(
+            rangeslider_visible=False if i != num_rows else True,  # Only show rangeslider on bottom chart
+            row=i, col=1
+        )
 
     return fig
 
@@ -696,17 +779,7 @@ if ticker:
         ticker = None
 
 # Step 3: Show Analysis Options only if ticker is valid
-# if ticker and data is not None and not data.empty:
-#     analysis_type = st.selectbox(
-#         "Select Analysis Type",
-#         ["Simple Moving Average", "Upwards and Downwards Run", "Daily Returns", "Max Profit Calculations", "MACD (Moving Average Convergence Diverence)", "RSI (Relative Strength Index)"]
-#     )
-
-    # if analysis_type == "Simple Moving Average":
-    # # --- Top controls ---
-    #     chart_type = st.selectbox("Chart Type", ["Line", "Candlestick", "Bars"])
-    #     sma_window = st.slider("SMA Window (days)", 5, 250, 50, 1)
-
+if ticker and data is not None and not data.empty:
     # --- Feature checkboxes (layer onto SAME chart) ---
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -718,42 +791,43 @@ if ticker:
     with c3:
         cb_maxp  = st.checkbox("Max Profit", value=False)
         cb_rsi   = st.checkbox("RSI", value=False)
+    
     if cb_sma:
         sma_window = st.slider(
-        'SMA Window',
-        min_value=1,
-        max_value=200,
-        value=50,
-        step=1
-    )
+            'SMA Window',
+            min_value=1,
+            max_value=200,
+            value=50,
+            step=1
+        )
     else:
-    # If the checkbox is not ticked, set a default value for sma_window
+        # If the checkbox is not ticked, set a default value for sma_window
         sma_window = 50
+    
     fig = plotly_combined_chart(
-    data, ticker,
-    sma_window=sma_window,
-    show_sma=cb_sma,
-    show_runs=cb_runs,
-    show_maxprofit=cb_maxp,
-    show_returns=cb_rets,
-    show_macd=cb_macd,
-    show_rsi=cb_rsi
-)
+        data, ticker,
+        sma_window=sma_window,
+        show_sma=cb_sma,
+        show_runs=cb_runs,
+        show_maxprofit=cb_maxp,
+        show_returns=cb_rets,
+        show_macd=cb_macd,
+        show_rsi=cb_rsi
+    )
     st.plotly_chart(fig, use_container_width=True)
 
     # --- Explanations shown ONLY for enabled features; readable in dark/light themes ---
     exp = []
     if cb_sma:   exp.append("**SMA**: Average price over N days to smooth noise.")
-    if cb_runs:  exp.append("**Trend Runs**: Green when price > SMA50, red otherwise; long runs suggest stronger trends.")
+
     if cb_macd:  exp.append("**MACD**: 12/26 EMA spread with 9-EMA signal; histogram above/below 0 shows momentum bias.")
     if cb_rsi:   exp.append("**RSI**: 0–100 scale; >70 overbought, <30 oversold (guide band shown).")
     if cb_rets:  exp.append("**Daily Returns**: % change each day (bottom secondary axis).")
-    if cb_maxp:  exp.append("**Max Profit**: Buy low/sell high points (▲ buy, ▼ sell) for top 10% profitable trades.   Click on Table below to see all trades.")
+    if cb_maxp:  exp.append("**Max Profit**: Buy low/sell high points (▲ buy, ▼ sell) for top 10% profitable trades. Click on Table below to see all trades.")
     if exp: st.info("**Feature Explanations**\n\n- " + "\n- ".join(exp))
+    
     if cb_maxp: 
-       
         trades_df, *_ = max_profit_calculations(ticker)  # ✅ only keep the first element (DataFrame)
-      
         with st.expander("📊 View Trade Details"):
             st.dataframe(
                 trades_df.style.format({
@@ -763,39 +837,6 @@ if ticker:
                 }),
                 use_container_width=True
             )
-
-    # if st.button("Generate Analysis"):
-    #     st.subheader("Analysis Results")
-    #     st.write("Shows the selected analysis compared to the actual stock price")
-
-    #     if analysis_type == "Max Profit Calculations":
-    #         # fig,trades_df = max_profit(ticker)
-    #         fig,trades_df = max_profit(ticker)
-    #         if fig:
-    #             st.plotly_chart(fig, use_container_width=True)
-    #         if trades_df is not None:
-    #             # Display trades in an expandable section, user can sort columns too
-    #             with st.expander("📊 View Trade Details"):
-    #                 st.dataframe(trades_df.style.format({
-    #                     "Buy Price": "{:.2f}",
-    #                     "Sell Price": "{:.2f}", 
-    #                     "Profit": "{:.2f}"
-    #                 }), use_container_width=True)
-    #     else:
-    #         if analysis_type == "Simple Moving Average":
-    #             st.plotly_chart(plotly_sma_zoom(data, ticker, window=sma_window), use_container_width=True)
-    #         elif analysis_type == "Upwards and Downwards Run":
-    #             fig = plot_upward_downward_runs(data, ticker)
-    #         elif analysis_type == "Daily Returns":
-    #             fig = daily_returns(data)
-    #         elif analysis_type == "MACD (Moving Average Convergence Diverence)":
-    #             fig = macd(ticker)
-    #         elif analysis_type == "RSI (Relative Strength Index)":
-    #             fig = rsi(ticker)
-    #         if fig:
-    #             st.pyplot(fig)
-    #             plt.close(fig)
-    #             #st.plotly_chart(fig, use_container_width=True)
 
 else:
     if ticker_selection != "Others":
