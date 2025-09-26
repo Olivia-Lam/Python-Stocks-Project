@@ -80,26 +80,16 @@ def plot_upward_downward_runs(data, ticker):
     plt.close(fig)
     return fig
 
+# Calculate daily returns 
 def daily_returns(data):
-    returns = data['Close'].pct_change()
-    fig, ax = plt.subplots(figsize=(12, 6), facecolor='#e6e6e6')
-    ax.set_facecolor('#e6e6e6')
-    for s in ax.spines.values():
-        s.set_visible(False)
-    ax.grid(False)
-    ax.yaxis.tick_right()
-    ax.yaxis.set_label_position('right')
-    ax.tick_params(axis='y', right=True, left=False, colors='#222')
-    ax.tick_params(axis='x', colors='#222')
+    current_price = data['Close']
 
-    ax.plot(returns.index, returns, label="Daily Returns", color="purple", linewidth=1.2)
-    ax.set_title("Daily Returns")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Return")
-    ax.legend(frameon=False, loc='upper left')
-    fig.autofmt_xdate()
-    plt.close(fig)
-    return fig
+    previous_price = data['Close'].shift(1)
+
+    daily_return = (current_price - previous_price) / previous_price
+    
+    # return value as percentage
+    return (daily_return * 100.0)
 
 # Max Profit Calculation Function
 def max_profit_calculations(ticker, period = '3y'):
@@ -615,7 +605,7 @@ def plotly_combined_chart(
     # --- Add Daily Returns to the next available indicator row ---
     if show_returns:
         current_indicator_row += 1
-        returns = prices.pct_change() * 100.0
+        returns = daily_returns(data)
         fig.add_trace(go.Bar(x=returns.index, y=returns, name="Daily Returns (%)", marker=dict(color="#9467bd")),
                       row=current_indicator_row, col=1)
         fig.update_yaxes(title_text="Daily Returns (%)", row=current_indicator_row, col=1)
@@ -696,6 +686,42 @@ def plotly_combined_chart(
         ), row=price_row, col=1, secondary_y=False)
 
     # --- Final Layout Updates ---
+
+    # Determine the explicit X-axis name for the main price chart (last row)
+    # The X-axis for the Nth row is named 'xaxisN' in Plotly subplots.
+    xaxis_key = f'xaxis{price_row}' if price_row > 1 else 'xaxis'
+
+    # Prepare the specific X-axis dictionary with range, selector, and slider
+    xaxis_config = dict(
+        # Explicitly set the full initial range (helps stabilize the selector)
+        range=[prices.index.min(), prices.index.max()],
+        
+        rangeselector=dict(
+            buttons=[
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=3, label="3m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(label="YTD", step="year", stepmode="todate"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(count=3, label="3y", step="year", stepmode="backward"),
+                dict(step="all", label="All")
+            ],
+            # Position the selector right below the title
+            y=1.02,  # Above the chart area, below title
+            x=0.01,  # Left aligned
+            bgcolor="rgba(0,0,0,0)",  # Transparent background
+            bordercolor="rgba(0,0,0,0)",
+            font=dict(size=12)
+        ),
+        # Keep rangeslider visible only on this axis
+        rangeslider=dict(visible=True)
+    )
+
+    # Use a dictionary update to pass the dynamic key to update_layout
+    layout_update = {
+        xaxis_key: xaxis_config
+    }
+    
     fig.update_layout(
         hovermode="x unified",
         dragmode="pan",
@@ -704,37 +730,20 @@ def plotly_combined_chart(
         template='plotly_white',
         height=800,
         width=1200,
-        # MOVE RANGE SELECTOR TO LAYOUT LEVEL - appears right below title
-        xaxis=dict(
-            rangeselector=dict(
-                buttons=[
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=3, label="3m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(label="YTD", step="year", stepmode="todate"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(count=3, label="3y", step="year", stepmode="backward"),
-                    dict(step="all", label="All")
-                ],
-                # Position the selector right below the title
-                y=1.02,  # Above the chart area, below title
-                x=0.01,  # Left aligned
-                bgcolor="rgba(0,0,0,0)",  # Transparent background
-                bordercolor="rgba(0,0,0,0)",
-                font=dict(size=12)
-            ),
-            # Keep rangeslider at the bottom
-            rangeslider=dict(visible=True)
-        )
+        **layout_update  # Apply the dynamically keyed X-axis configuration
     )
-    
     # Update y-axis titles for the main chart
     fig.update_yaxes(title_text="Price", row=price_row, col=1, secondary_y=False)
     
-    # Remove rangeslider and rangeselector from individual x-axes since we moved them to layout
+    # Remove rangeslider and rangeselector from individual x-axes to prevent conflicts
     for i in range(1, num_rows + 1):
+        is_price_row = (i == price_row)
+        
         fig.update_xaxes(
-            rangeslider_visible=False if i != num_rows else True,  # Only show rangeslider on bottom chart
+            # The rangeslider is defined in the layout now, but this ensures no others are visible
+            rangeslider_visible=False if not is_price_row else True,  
+            # Explicitly hide the rangeselector on all indicator rows
+            rangeselector_visible=False if not is_price_row else True,
             row=i, col=1
         )
 
