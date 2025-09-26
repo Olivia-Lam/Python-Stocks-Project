@@ -59,27 +59,6 @@ def simple_moving_average(ticker, window=50, period='3y'):
     return fig
 
 
-def plot_upward_downward_runs(data, ticker):
-    prices = data['Close']
-    ma_50 = prices.rolling(window=50).mean()
-    trend = prices > ma_50
-
-    plt.figure(figsize=(14, 6))
-    plt.plot(prices.index, prices, 'k-', linewidth=1.5, label='Closing Price')
-    plt.plot(prices.index, ma_50, 'b-', linewidth=2, alpha=0.7, label='50-Day MA')
-    plt.fill_between(prices.index, prices, ma_50, where=trend, alpha=0.3, color='green', label='Upward Trend')
-    plt.fill_between(prices.index, prices, ma_50, where=~trend, alpha=0.3, color='red', label='Downward Trend')
-    plt.title(f'Upward & Downward Runs for {ticker}', fontsize=16)
-    plt.xlabel('Date')
-    plt.ylabel('Price ($)')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.gcf().autofmt_xdate()
-    plt.tight_layout()
-    fig = plt.gcf()
-    plt.close(fig)
-    return fig
-
 # Calculate daily returns 
 def daily_returns(data):
     current_price = data['Close']
@@ -90,6 +69,117 @@ def daily_returns(data):
     
     # return value as percentage
     return (daily_return * 100.0)
+
+# Identify consecutive upward and downward runs
+def identify_consecutive_runs(data):
+    
+    # Identify consecutive upward and downward runs based on close-to-close price changes.
+    # Returns run data with statistics for visualization and analysis.
+    
+    prices = data['Close']
+    
+    # Calculate daily price changes (positive = up, negative = down)
+    price_changes = prices.diff()
+    
+    # Create run direction: 1 for up, -1 for down, 0 for flat
+    directions = np.where(price_changes > 0, 1, np.where(price_changes < 0, -1, 0))
+    
+    # Identify runs
+    runs = []
+    current_direction = None
+    run_start = None
+    run_length = 0
+    
+    for i, direction in enumerate(directions):
+        if direction == 0:  # Skip flat days
+            continue
+            
+        if current_direction != direction:
+            # End previous run
+            if current_direction is not None and run_length > 0:
+                runs.append({
+                    'direction': 'Upward' if current_direction == 1 else 'Downward',
+                    'start_idx': run_start,
+                    'end_idx': i - 1,
+                    'length': run_length,
+                    'start_date': prices.index[run_start],
+                    'end_date': prices.index[i - 1],
+                    'start_price': prices.iloc[run_start],
+                    'end_price': prices.iloc[i - 1]
+                })
+            
+            # Start new run
+            current_direction = direction
+            run_start = i
+            run_length = 1
+        else:
+            # Continue current run
+            run_length += 1
+    
+    # Add final run
+    if current_direction is not None and run_length > 0:
+        runs.append({
+            'direction': 'Upward' if current_direction == 1 else 'Downward',
+            'start_idx': run_start,
+            'end_idx': len(directions) - 1,
+            'length': run_length,
+            'start_date': prices.index[run_start],
+            'end_date': prices.index[-1],
+            'start_price': prices.iloc[run_start],
+            'end_price': prices.iloc[-1]
+        })
+    
+    runs_df = pd.DataFrame(runs)
+    
+    # Calculate statistics
+    if not runs_df.empty:
+        upward_runs = runs_df[runs_df['direction'] == 'Upward']
+        downward_runs = runs_df[runs_df['direction'] == 'Downward']
+        
+        stats = {
+            'total_upward_runs': len(upward_runs),
+            'total_downward_runs': len(downward_runs),
+            'longest_upward_run': upward_runs['length'].max() if len(upward_runs) > 0 else 0,
+            'longest_downward_run': downward_runs['length'].max() if len(downward_runs) > 0 else 0,
+            'avg_upward_length': upward_runs['length'].mean() if len(upward_runs) > 0 else 0,
+            'avg_downward_length': downward_runs['length'].mean() if len(downward_runs) > 0 else 0
+        }
+    else:
+        stats = {
+            'total_upward_runs': 0,
+            'total_downward_runs': 0,
+            'longest_upward_run': 0,
+            'longest_downward_run': 0,
+            'avg_upward_length': 0,
+            'avg_downward_length': 0
+        }
+    
+    return runs_df, stats
+
+# Display run statistics
+def display_run_statistics(stats):
+    """
+    Display upward and downward run statistics in Streamlit
+    """
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric(
+            "📈 Upward Runs", 
+            f"{stats['total_upward_runs']}", 
+            f"Longest: {int(stats['longest_upward_run'])} days"
+        )
+        if stats['avg_upward_length'] > 0:
+            st.caption(f"Average length: {stats['avg_upward_length']:.1f} days")
+    
+    with col2:
+        st.metric(
+            "📉 Downward Runs", 
+            f"{stats['total_downward_runs']}", 
+            f"Longest: {int(stats['longest_downward_run'])} days"
+        )
+        if stats['avg_downward_length'] > 0:
+            st.caption(f"Average length: {stats['avg_downward_length']:.1f} days")
 
 # Max Profit Calculation Function
 def max_profit_calculations(ticker, period = '3y'):
@@ -621,52 +711,68 @@ def plotly_combined_chart(
         fig.add_trace(go.Scatter(x=ma.index, y=ma, name=f"SMA {sma_window}", mode="lines", line=dict(color="#ff7f0e")),
                       row=price_row, col=1, secondary_y=False)
 
-    # FIXED Trend Runs - Clear Green/Red Logic
+    # Consecutive Upward and Downward Runs - Based on Daily Price Changes
     if show_runs:
-        ma50 = _compute_smas(prices, windows=(50,))[50]
-        trend_up = (prices > ma50)  # True when price is above MA50 (bullish)
+        # Identify consecutive runs based on close-to-close changes
+        runs_df, run_stats = identify_consecutive_runs(data)
         
-        # Add MA50 reference line first (baseline for fills)
-        fig.add_trace(go.Scatter(
-            x=ma50.index, y=ma50, 
-            name="MA50 Reference",
-            mode="lines", 
-            line=dict(color="#4169E1", width=2, dash="dot"),
-            hovertemplate="MA50: $%{y:.2f}<extra></extra>"
-        ), row=price_row, col=1)
+        # Display run statistics for Trend Runs
+        display_run_statistics(run_stats)
         
-        # GREEN areas: Price ABOVE MA50 (Upward/Bullish trend)
-        fig.add_trace(go.Scatter(
-            x=prices.index, 
-            y=prices.where(trend_up),  # Only show prices when they're above MA50
-            fill='tonexty',  # Fill to the previous trace (MA50)
-            fillcolor='rgba(34, 139, 34, 0.25)',  # Forest Green
-            mode='none',
-            name='📈 Above MA50 (Bullish)',
-            hovertemplate="Bullish Trend<br>Price: $%{y:.2f}<br>Above MA50<extra></extra>",
-            showlegend=True
-        ), row=price_row, col=1)
-        
-        # Add MA50 again as baseline for red fill
-        fig.add_trace(go.Scatter(
-            x=ma50.index, y=ma50, 
-            mode="lines", 
-            line=dict(width=0), 
-            showlegend=False, 
-            hoverinfo="skip"
-        ), row=price_row, col=1)
-        
-        # RED areas: Price BELOW MA50 (Downward/Bearish trend)  
-        fig.add_trace(go.Scatter(
-            x=prices.index, 
-            y=prices.where(~trend_up),  # Only show prices when they're below MA50
-            fill='tonexty',  # Fill to the previous trace (MA50)
-            fillcolor='rgba(220, 20, 60, 0.25)',  # Crimson Red
-            mode='none',
-            name='📉 Below MA50 (Bearish)',
-            hovertemplate="Bearish Trend<br>Price: $%{y:.2f}<br>Below MA50<extra></extra>",
-            showlegend=True
-        ), row=price_row, col=1)
+        # Add run segments to the chart
+        if not runs_df.empty:
+            for _, run in runs_df.iterrows():
+                # Get price data for this run period
+                run_start_idx = run['start_idx']
+                run_end_idx = run['end_idx']
+                run_dates = prices.index[run_start_idx:run_end_idx + 1]
+                run_prices = prices.iloc[run_start_idx:run_end_idx + 1]
+                
+                # Set color and styling based on direction
+                if run['direction'] == 'Upward':
+                    color = '#22C55E'  # Green for upward runs
+                    symbol = '📈'
+                    line_width = 4
+                else:
+                    color = '#EF4444'  # Red for downward runs  
+                    symbol = '📉'
+                    line_width = 4
+                
+                # Add colored line segment for this run
+                fig.add_trace(go.Scatter(
+                    x=run_dates,
+                    y=run_prices,
+                    mode='lines',
+                    line=dict(color=color, width=line_width),
+                    name=f"{symbol} {run['direction']} Run ({run['length']} days)",
+                    hovertemplate=(
+                        f"<b>{run['direction']} Run</b><br>"
+                        f"Length: {run['length']} days<br>"
+                        f"Start: {run['start_date'].strftime('%Y-%m-%d')}<br>"
+                        f"End: {run['end_date'].strftime('%Y-%m-%d')}<br>"
+                        f"Price: $%{{y:.2f}}<br>"
+                        f"Date: %{{x}}<extra></extra>"
+                    ),
+                    showlegend=False,  # Don't clutter legend with individual runs
+                    opacity=0.8
+                ), row=price_row, col=1)
+            
+            # Add legend entries for run types (without showing individual runs)
+            fig.add_trace(go.Scatter(
+                x=[None], y=[None],
+                mode='lines',
+                line=dict(color='#22C55E', width=4),
+                name=f'📈 Upward Runs ({run_stats["total_upward_runs"]} total)',
+                showlegend=True
+            ), row=price_row, col=1)
+            
+            fig.add_trace(go.Scatter(
+                x=[None], y=[None], 
+                mode='lines',
+                line=dict(color='#EF4444', width=4),
+                name=f'📉 Downward Runs ({run_stats["total_downward_runs"]} total)',
+                showlegend=True
+            ), row=price_row, col=1)
 
     # Max Profit Markers
     if show_maxprofit:
@@ -828,7 +934,7 @@ if ticker and data is not None and not data.empty:
     # --- Explanations shown ONLY for enabled features; readable in dark/light themes ---
     exp = []
     if cb_sma:   exp.append("**SMA**: Average price over N days to smooth noise.")
-
+    if cb_runs:  exp.append("**Trend Runs**: Consecutive upward/downward days based on close-to-close price changes. Shows total count and longest streaks for each direction.")
     if cb_macd:  exp.append("**MACD**: 12/26 EMA spread with 9-EMA signal; histogram above/below 0 shows momentum bias.")
     if cb_rsi:   exp.append("**RSI**: 0–100 scale; >70 overbought, <30 oversold (guide band shown).")
     if cb_rets:  exp.append("**Daily Returns**: % change each day (bottom secondary axis).")
