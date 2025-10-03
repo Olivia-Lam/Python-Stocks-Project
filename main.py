@@ -65,6 +65,7 @@ def daily_returns(data):
 
     previous_price = data['Close'].shift(1)
 
+    # Daily return formula
     daily_return = (current_price - previous_price) / previous_price
     
     # return value as percentage
@@ -248,68 +249,6 @@ def max_profit_calculations(ticker, period = '3y'):
     
     return trades_df, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)
 
-# Max Profit Indicator
-def max_profit(ticker):
-    try:
-        
-        trades_df, buy_days, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(ticker)
-        
-        if not buy_days:
-            st.warning("No profitable trades found in this period.")
-            return None
-        else:
-            st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
-
-        
-            fig = go.Figure()
-
-            # Add closing price line
-            fig.add_trace(go.Scatter(
-                x=data.index,
-                y=data['Close'],
-                mode='lines',
-                name='Close Price',
-                line=dict(color='blue')
-            ))
-
-            # Add buy points
-            fig.add_trace(go.Scatter(
-                x=filtered_buy_days,
-                y=filtered_buy_prices,
-                mode='markers',
-                marker=dict(symbol='triangle-up', color='green', size=10),
-                name='Buy'
-            ))
-
-            # Add sell points
-            fig.add_trace(go.Scatter(
-                x=filtered_sell_days,
-                y=filtered_sell_prices,
-                mode='markers',
-                marker=dict(symbol='triangle-down', color='red', size=10),
-                name='Sell'
-            ))
-
-            # Update layout for interactivity
-            fig.update_layout(
-                title=f"{ticker} Price with Most Profitable Trades",
-                xaxis_title='Date',
-                yaxis_title='Price ($)',
-                xaxis_rangeslider_visible=True,  # adds a zoom slider at bottom
-                hovermode='x unified',
-                template='plotly_white'
-            )
-
-            return fig,trades_df
-
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
-
-# --- helpers for momentum overlay ---
-def _ema(s, span):
-    return s.ewm(span=span, adjust=False).mean()
-
-
 
 #Zoom Function
 def plotly_sma_zoom(
@@ -458,82 +397,17 @@ def macd_calculations(ticker, period = '3y'):
     data = download_stock_data(ticker, period)
     prices = data['Close']
 
-    # Exonential Moving Averages calculation
+    # Obtain exponential moving average data
     ema_12 = prices.ewm(span=12, adjust=False).mean()
     ema_26 = prices.ewm(span=26, adjust=False).mean()
 
-    # MACD and signal line calculation
+    # Get MACD, signal line info and obtain histogram results for plotting
     macd_line = ema_12 - ema_26
     signal_line = macd_line.ewm(span=9, adjust=False).mean()
     histogram = macd_line - signal_line
 
     return prices, macd_line, signal_line, histogram
 
-
-# MACD Indicator 
-def macd(ticker):
-    try:
-
-        prices, macd_line, signal_line, histogram = macd_calculations(ticker)
-        
-        # For histogram scaling and colors
-        scale_factor = 2
-        scaled_histogram = histogram * scale_factor
-        colors = ['green' if h >= 0 else 'red' for h in scaled_histogram]
-
-        # Create subplots: 2 rows, shared x-axis
-        fig = make_subplots(
-            rows=2, cols=1,
-            shared_xaxes=True,
-            row_heights=[0.6, 0.4],
-            vertical_spacing=0.2,
-            subplot_titles=(f"{ticker} Price Chart", "MACD Histogram")
-        )
-
-        # Price chart display
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=prices, mode='lines', name='Close Price', line=dict(color='blue')),
-            row=1, col=1
-        )
-        
-        # MACD with Histogram
-        fig.add_trace(
-            go.Bar(x=prices.index, y=scaled_histogram, name='Histogram', marker_color=colors, opacity=0.5),
-            row=2, col=1
-        )
-
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=macd_line, mode='lines', name='MACD Line', line=dict(color='purple')),
-            row=2, col=1
-        )
-
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=signal_line, mode='lines', name='Signal Line', line=dict(color='orange')),
-            row=2, col=1
-        )
-
-        # Adding white line for MACD indicator zero line
-        fig.add_shape(
-            type="line",
-            x0=prices.index[0], x1=prices.index[-1],
-            y0=0, y1=0,
-            line=dict(color="white", width=1, dash="dash"),
-            row=2, col=1
-        )
-
-        # Layout and interactive features
-        fig.update_layout(
-            height=700,
-            hovermode='x unified',
-            template='plotly_white',
-            xaxis2_rangeslider_visible=True,  # interactive range slider for histogram
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-
-        return fig
-    
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
 
 # RSI Calculation Function
 def rsi_calculation(ticker, period='3y', window=14):
@@ -551,75 +425,13 @@ def rsi_calculation(ticker, period='3y', window=14):
     avg_gain = gain.rolling(window=window, min_periods=window).mean()
     avg_loss = loss.rolling(window=window, min_periods=window).mean()
 
-    # Calculate RS (needed for RSI)
+    # Relative strength calculation
     rs = avg_gain / avg_loss
 
-    # Calculate RSI
+    # Relative strength INDEX calculation
     rsi = 100 - (100 / (1 + rs))
 
     return prices, rsi
-
-# RSI Indicator
-def rsi(ticker):
-    try:
-
-        prices, rsi = rsi_calculation(ticker)
-
-        # Create subplots: 2 rows, shared x-axis
-        fig = make_subplots(
-            rows=2, cols=1,
-            shared_xaxes=True,
-            row_heights=[0.6, 0.4],
-            vertical_spacing=0.2,
-            subplot_titles=(f"{ticker} Price", f"{ticker} RSI")
-        )
-
-        # Price Chart Display
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=prices, mode='lines', name='Close Price', line=dict(color='blue')),
-            row=1, col=1
-        )
-
-        # RSI Chart Display
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=rsi, mode='lines', name='RSI', line=dict(color='purple')),
-            row=2, col=1
-        )
-        # Adding grey line for RSI midiline
-        fig.add_shape(
-            type="line",
-            x0=prices.index[0], x1=prices.index[-1],
-            y0=50, y1=50,
-            line=dict(color="grey", width=1, dash="dash"),
-            row=2, col=1
-        )
-
-        # Add RSI overbought/oversold lines
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=[70]*len(prices), mode='lines',
-                    name='Overbought (70)', line=dict(color='red', dash='dash'), opacity=0.7),
-            row=2, col=1
-        )
-
-        fig.add_trace(
-            go.Scatter(x=prices.index, y=[30]*len(prices), mode='lines',
-                    name='Oversold (30)', line=dict(color='green', dash='dash'), opacity=0.7),
-            row=2, col=1
-        )
-        
-        # Layout and interactive features
-        fig.update_layout(
-            height=700,
-            hovermode='x unified',
-            template='plotly_white',
-            xaxis2_rangeslider_visible=True,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-
-        return fig
-    
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
 
 
 def plotly_combined_chart(
@@ -745,19 +557,11 @@ def plotly_combined_chart(
                     mode='lines',
                     line=dict(color=color, width=line_width),
                     name=f"{symbol} {run['direction']} Run ({run['length']} days)",
-                    hovertemplate=(
-                        f"<b>{run['direction']} Run</b><br>"
-                        f"Length: {run['length']} days<br>"
-                        f"Start: {run['start_date'].strftime('%Y-%m-%d')}<br>"
-                        f"End: {run['end_date'].strftime('%Y-%m-%d')}<br>"
-                        f"Price: $%{{y:.2f}}<br>"
-                        f"Date: %{{x}}<extra></extra>"
-                    ),
-                    showlegend=False,  # Don't clutter legend with individual runs
+                    hoverinfo= 'skip',
+                    showlegend=False, 
                     opacity=0.8
                 ), row=price_row, col=1)
             
-            # Add legend entries for run types (without showing individual runs)
             fig.add_trace(go.Scatter(
                 x=[None], y=[None],
                 mode='lines',
@@ -859,10 +663,10 @@ def plotly_combined_chart(
 # ---------------------------
 # Streamlit App Layout
 # ---------------------------
-st.set_page_config(page_title="Stock Analysis Dashboard", layout="wide")
+st.set_page_config(page_title="Stockie: Your Stock Analysis Dashboard", layout="wide")
 
 st.title("📊 Stock Analysis Dashboard")
-st.write("Analyze stock performance with advanced metrics and visualizations")
+st.write("Stock analysis made easy! Analyse stock performance with advanced metrics and visualizations")
 
 # Step 1: Select Ticker
 ticker_choices = ["-- Select --", "AAPL", "TSLA", "GOOGL", "AMZN", "META", "Others"]
