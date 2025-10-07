@@ -237,15 +237,16 @@ def max_profit_calculations(ticker, period = '3y'):
             "Profit": round(profit,2)
         }
         )
-        # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
-        trades_df = pd.DataFrame(trades)
-        top_trades = trades_df["Profit"].quantile(0.9)
-        # Stores trades with profits above 90th percentile
-        if profit >= top_trades:
-            filtered_buy_days.append(buy_day)
-            filtered_sell_days.append(sell_day)
-            filtered_buy_prices.append(buy_price)
-            filtered_sell_prices.append(sell_price)
+    # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
+    trades_df = pd.DataFrame(trades)
+
+    top_trades = trades_df["Profit"].quantile(0.9)
+    filtered = trades_df[trades_df["Profit"] >= top_trades]
+    # To use for marker plotting
+    filtered_buy_days = pd.to_datetime(filtered["Buy Date"]).tolist()
+    filtered_sell_days = pd.to_datetime(filtered["Sell Date"]).tolist()
+    filtered_buy_prices = filtered["Buy Price"].tolist()
+    filtered_sell_prices = filtered["Sell Price"].tolist()
     
     return trades_df, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, round(total_profit, 2)
 
