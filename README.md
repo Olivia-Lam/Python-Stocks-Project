@@ -1,21 +1,21 @@
-# 📈 Stock Market Trend Analysis (Beginner-Friendly)
+# Stock Market Trend Analysis (For Educational purposes)
 
-## 📌 Project Overview
+## Project Overview
 This repository contains a **Python-based stock analysis toolkit** focused on core time-series analytics rather than ML. It helps you download market data, visualize **Simple Moving Average (SMA)**, highlight **Upward/Downward Runs**, and plot **Simple Daily Returns**.
 
-> ✅ Designed for learning: the code is small, readable, and modular.  
-> 🧩 Extendable: commented templates are included for **Max Profit**, **MACD**, and **RSI** if you want to expand.
+> Designed for learning: the code is small, readable, and modular.  
+> Extendable: commented templates are included for **Max Profit**, **MACD**, and **RSI** if you want to expand.
 
 ---
 
-## 📊 Dataset Used
+## Dataset Used
 - **Source:** Yahoo Finance via the `yfinance` API  
 - **Default Lookback:** up to **3 years** (`period='3y'`)  
 - **Columns used:** `Open, High, Low, Close, Volume` (we primarily use `Close` here)
 
 ---
 
-## ✅ Requirements Mapping
+## Requirements Mapping
 
 | Requirement | Where it’s implemented |
 |---|---|
@@ -25,14 +25,14 @@ This repository contains a **Python-based stock analysis toolkit** focused on co
 | Visualization: price vs **SMA** on same chart | `plot_simple_moving_average` *(to implement)* |
 | Visualization: highlight **runs** on chart | `plot_upward_downward_runs` |
 
-> 💡 The repo includes **commented** templates for:
+> The repo includes **commented** templates for:
 > - `max_profit_calculations` (LeetCode “Best Time to Buy and Sell Stock II”)
 > - `macd_calculations`
 > - `rsi_calculation`  
 
 ---
 
-## 🤝 Contributions
+## Contributions
 | Team Member | Assigned Part |
 |---|---|
 | DANIEL TAY ZHU HAO | Daily Returns |
