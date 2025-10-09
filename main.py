@@ -201,14 +201,14 @@ def max_profit_calculations(data):
     price_list = prices.tolist()
     dates = prices.index.tolist()
     
-    # Loop to buy low and sell high
+    # Greedy Trading Algo
     while i < n - 1:
-        # Find buy point, keeps moving until it detects a rise
+        # This loop moves until it detects an increase in the price
         while i < n - 1 and price_list[i+1] <= price_list[i]:
             i += 1
         if i == n - 1:
             break
-        #Once the greatest rise is detected, that will be stored as a buy point
+        #Once a rise is detected, that will be stored as a buy point
         buy_price = price_list[i]
         buy_day = dates[i]
         buy_days.append(buy_day)
@@ -237,9 +237,10 @@ def max_profit_calculations(data):
             "Profit": round(profit,2)
         }
         )
-    # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
+
     trades_df = pd.DataFrame(trades)
 
+    # Since there are so many transactions, we want to filter for the significant ones to display (Top 10% in this case)
     top_trades = trades_df["Profit"].quantile(0.9)
     filtered = trades_df[trades_df["Profit"] >= top_trades]
     # To use for marker plotting
@@ -477,7 +478,7 @@ def plotly_combined_chart(
     price_row = num_rows
     current_indicator_row = 0
 
-    # --- Add MACD to the first available indicator row ---
+    
     if show_macd:
         current_indicator_row += 1
         # Assumed function
@@ -494,7 +495,7 @@ def plotly_combined_chart(
         fig.update_yaxes(title_text="MACD", row=current_indicator_row, col=1)
         fig.add_hline(y=0, line_width=1, line_dash="dash", opacity=0.4, line_color="#888", row=current_indicator_row, col=1)
 
-    # --- Add RSI to the next available indicator row ---
+    
     if show_rsi:
         current_indicator_row += 1
         # Assumed function
@@ -581,10 +582,9 @@ def plotly_combined_chart(
 
     # Max Profit Markers
     if show_maxprofit:
-        # Assumed function
+
         _, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(data)
-        # Assumed function
-        st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
+        st.success(f"Total Potential Profit: ${total_profit:.2f}")
 
         fig.add_trace(go.Scatter(
             x=filtered_buy_days, y=filtered_buy_prices, mode='markers', name='Buy',
@@ -747,8 +747,8 @@ if ticker and data is not None and not data.empty:
     if exp: st.info("**Feature Explanations**\n\n- " + "\n- ".join(exp))
     
     if cb_maxp: 
-        trades_df, *_ = max_profit_calculations(data)  # only keep the first element (DataFrame)
-        with st.expander("📊 View Trade Details"):
+        trades_df, *_ = max_profit_calculations(data)
+        with st.expander("View Trade Details"):
             st.dataframe(
                 trades_df.style.format({
                     "Buy Price": "{:.2f}",
