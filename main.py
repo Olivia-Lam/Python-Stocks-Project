@@ -666,7 +666,7 @@ def plotly_combined_chart(
 # ---------------------------
 st.set_page_config(page_title="Stockie", layout="wide")
 
-st.title("📊 Stockie: Your Stock Analysis Dashboard")
+st.title("Stockie: Your Stock Analysis Dashboard")
 st.write("Stock analysis made easy! Analyse stock performance with advanced metrics and visualizations")
 
 # Step 1: Select Ticker
@@ -674,8 +674,8 @@ ticker_choices = ["-- Select --", "AAPL", "TSLA", "GOOGL", "AMZN", "META", "Othe
 ticker_selection = st.selectbox(
     "Select a Company Ticker",
     ticker_choices,
-    index=None,   # 👈 makes it start empty
-    placeholder="Choose a ticker..."  # 👈 nice hint text
+    index=None,  
+    placeholder="Choose a ticker..."  
 )
 
 ticker_input = ticker_selection
@@ -693,7 +693,7 @@ if ticker:
             st.error(f"No data found for ticker '{ticker}'. Please check and try again.")
             ticker = None   # invalidate ticker
         else:
-            st.success(f"Valid ticker '{ticker}' found! ✅")
+            st.success(f"Valid ticker '{ticker}' found! ")
     except Exception as e:
         st.error(f"Error retrieving data for '{ticker}': {e}")
         ticker = None
@@ -747,7 +747,7 @@ if ticker and data is not None and not data.empty:
     if exp: st.info("**Feature Explanations**\n\n- " + "\n- ".join(exp))
     
     if cb_maxp: 
-        trades_df, *_ = max_profit_calculations(data)  # ✅ only keep the first element (DataFrame)
+        trades_df, *_ = max_profit_calculations(data)  # only keep the first element (DataFrame)
         with st.expander("📊 View Trade Details"):
             st.dataframe(
                 trades_df.style.format({
