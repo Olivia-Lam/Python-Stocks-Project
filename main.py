@@ -183,8 +183,8 @@ def display_run_statistics(stats):
             st.caption(f"Average length: {stats['avg_downward_length']:.1f} days")
 
 # Max Profit Calculation Function
-def max_profit_calculations(ticker, period = '3y'):
-    data = download_stock_data(ticker, period)
+def max_profit_calculations(data):
+    
     prices = data['Close']
     buy_days = []
     sell_days = []
@@ -394,8 +394,8 @@ def plotly_sma_zoom(
 
 
 # MACD Calculation Function
-def macd_calculations(ticker, period = '3y'):
-    data = download_stock_data(ticker, period)
+def macd_calculations(data):
+    
     prices = data['Close']
 
     # Obtain exponential moving average data
@@ -411,8 +411,8 @@ def macd_calculations(ticker, period = '3y'):
 
 
 # RSI Calculation Function
-def rsi_calculation(ticker, period='3y', window=14):
-    data = download_stock_data(ticker, period)
+def rsi_calculation(data, window=14):
+
     prices = data['Close']
 
     # Calculate daily price changes
@@ -481,7 +481,7 @@ def plotly_combined_chart(
     if show_macd:
         current_indicator_row += 1
         # Assumed function
-        prices, macd_line, signal_line, histogram = macd_calculations(ticker)
+        prices, macd_line, signal_line, histogram = macd_calculations(data)
         fig.add_trace(go.Bar(
             x=histogram.index, y=histogram, name="MACD Hist",
             marker=dict(color=["#26a69a" if h > 0 else "#ef5350" for h in histogram]),
@@ -498,7 +498,7 @@ def plotly_combined_chart(
     if show_rsi:
         current_indicator_row += 1
         # Assumed function
-        _, rsi_values = rsi_calculation(ticker)
+        _, rsi_values = rsi_calculation(data)
         fig.add_trace(go.Scatter(x=rsi_values.index, y=rsi_values, name="RSI", line=dict(color="#785cff")),
                       row=current_indicator_row, col=1)
         fig.add_hline(y=70, line_width=1, line_dash="dash", opacity=0.7, line_color="#cc3333", name="Overbought", row=current_indicator_row, col=1)
@@ -582,7 +582,7 @@ def plotly_combined_chart(
     # Max Profit Markers
     if show_maxprofit:
         # Assumed function
-        _, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(ticker)
+        _, filtered_buy_days, filtered_sell_days, filtered_buy_prices, filtered_sell_prices, total_profit = max_profit_calculations(data)
         # Assumed function
         st.success(f"💰 Total Potential Profit: ${total_profit:.2f}")
 
@@ -747,7 +747,7 @@ if ticker and data is not None and not data.empty:
     if exp: st.info("**Feature Explanations**\n\n- " + "\n- ".join(exp))
     
     if cb_maxp: 
-        trades_df, *_ = max_profit_calculations(ticker)  # ✅ only keep the first element (DataFrame)
+        trades_df, *_ = max_profit_calculations(data)  # ✅ only keep the first element (DataFrame)
         with st.expander("📊 View Trade Details"):
             st.dataframe(
                 trades_df.style.format({
