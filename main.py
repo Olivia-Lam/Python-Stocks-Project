@@ -800,11 +800,49 @@ def plotly_sma_zoom(
             fig.update_yaxes(title_text="MACD", row=1, col=1, zeroline=True, zerolinecolor="rgba(255,255,255,0.15)")
         fig.update_yaxes(title_text="Price", row=2, col=1, secondary_y=False)
 
-        return fig
-        
-    except Exception as e:
-        st.error(f"Error creating chart: {e}")
-        return None
+    return fig
+
+
+# MACD Calculation Function
+def macd_calculations(data):
+    
+    prices = data['Close']
+
+    # Obtain exponential moving average data
+    ema_12 = prices.ewm(span=12, adjust=False).mean()
+    ema_26 = prices.ewm(span=26, adjust=False).mean()
+
+    # Get MACD, signal line info and obtain histogram results for plotting
+    macd_line = ema_12 - ema_26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    histogram = macd_line - signal_line
+
+    return prices, macd_line, signal_line, histogram
+
+
+# RSI Calculation Function
+def rsi_calculation(data, window=14):
+
+    prices = data['Close']
+
+    # Calculate daily price changes
+    difference = prices.diff()
+
+    # Separate gains and losses
+    gain = difference.where(difference > 0, 0)
+    loss = -difference.where(difference < 0, 0)
+
+    # Use .ewm to calculate average gain & loss
+    avg_gain = gain.ewm(com=window - 1, adjust=False).mean()
+    avg_loss = loss.ewm(com=window - 1, adjust=False).mean()
+
+    # Relative strength calculation
+    rs = avg_gain / avg_loss
+
+    # Relative strength INDEX calculation
+    rsi = 100 - (100 / (1 + rs))
+
+    return prices, rsi
 
 
 def plotly_combined_chart(
@@ -1066,7 +1104,7 @@ def plotly_combined_chart(
 # ---------------------------
 st.set_page_config(page_title="Stockie", layout="wide")
 
-st.title("Stockie: Your Stock Analysis Dashboard")
+st.title("STOKIE: Your Stock Analysis Dashboard")
 st.write("Stock analysis made easy! Analyse stock performance with advanced metrics and visualizations")
 
 # Step 1: Select stock ticker
