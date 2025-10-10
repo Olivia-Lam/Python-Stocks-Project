@@ -60,8 +60,6 @@ Calculates the average price over a rolling window to smooth noise and reveal tr
 sma = _compute_smas(prices, windows=(50,))
 ```
 
-**Algorithm:** Cumulative sum method (3,545× faster than nested loops)
-
 ### Trend Runs
 Identifies consecutive days of price increases (upward runs) or decreases (downward runs).
 
