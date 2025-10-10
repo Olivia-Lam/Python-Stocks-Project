@@ -423,9 +423,9 @@ def rsi_calculation(data, window=14):
     gain = difference.where(difference > 0, 0)
     loss = -difference.where(difference < 0, 0)
 
-    # Calculate average gain & loss
-    avg_gain = gain.rolling(window=window, min_periods=window).mean()
-    avg_loss = loss.rolling(window=window, min_periods=window).mean()
+    # Use .ewm to calculate average gain & loss
+    avg_gain = gain.ewm(com=window - 1, adjust=False).mean()
+    avg_loss = loss.ewm(com=window - 1, adjust=False).mean()
 
     # Relative strength calculation
     rs = avg_gain / avg_loss
