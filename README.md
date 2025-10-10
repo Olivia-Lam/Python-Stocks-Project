@@ -22,7 +22,7 @@ This project provides a user-friendly interface to explore stock price patterns 
 ```bash
 # Clone the repository
 git clone https://github.com/Olivia-Lam/Python-Stocks-Project-Lab-P4-2.git
-cd stock-analysis-toolkit
+cd Python-Stocks-Project-Lab-P4-2
 
 # Install dependencies
 pip install -r requirements.txt
