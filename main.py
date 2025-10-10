@@ -666,7 +666,7 @@ def plotly_combined_chart(
 # ---------------------------
 st.set_page_config(page_title="Stockie", layout="wide")
 
-st.title("Stockie: Your Stock Analysis Dashboard")
+st.title("STOKIE: Your Stock Analysis Dashboard")
 st.write("Stock analysis made easy! Analyse stock performance with advanced metrics and visualizations")
 
 # Step 1: Select Ticker
