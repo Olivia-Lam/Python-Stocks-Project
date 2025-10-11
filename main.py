@@ -659,6 +659,13 @@ def plotly_sma_zoom(
         plotly.graph_objects.Figure: Interactive chart
     """
     try:
+        # Validate input data
+        if data is None or data.empty:
+            raise ValueError("Input data is empty")
+        
+        if 'Close' not in data.columns:
+            raise ValueError("Data must contain 'Close' column")
+        
         prices = data['Close']
         volume = data['Volume'] if 'Volume' in data.columns else None
         
@@ -800,7 +807,17 @@ def plotly_sma_zoom(
             fig.update_yaxes(title_text="MACD", row=1, col=1, zeroline=True, zerolinecolor="rgba(255,255,255,0.15)")
         fig.update_yaxes(title_text="Price", row=2, col=1, secondary_y=False)
 
-    return fig
+        return fig
+        
+    except ValueError as ve:
+        st.error(f"Chart Creation Error: {ve}")
+        return None
+    except KeyError as ke:
+        st.error(f"Missing data column: {ke}")
+        return None
+    except Exception as e:
+        st.error(f"Unexpected error creating chart: {e}")
+        return None
 
 
 # MACD Calculation Function
@@ -1104,7 +1121,7 @@ def plotly_combined_chart(
 # ---------------------------
 st.set_page_config(page_title="Stockie", layout="wide")
 
-st.title("STOKIE: Your Stock Analysis Dashboard")
+st.title("STOCKIE: Your Stock Analysis Dashboard")
 st.write("Stock analysis made easy! Analyse stock performance with advanced metrics and visualizations")
 
 # Step 1: Select stock ticker
